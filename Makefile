@@ -51,3 +51,5 @@ install_packages:
 	pip3 install gdal
 
 # GoogleMaps API Key AIzaSyBh1uArKkL2r9IxPVRA2Xj3wviuii-zdLE
+
+-include Makefile.$(USER)

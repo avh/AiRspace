@@ -44,7 +44,7 @@ class _OBJWriter:
         return mtl_name
 
     def usemtl(self, name):
-        if not name in self.materials:
+        if name not in self.materials:
             raise Exception("no such material loaded: " + name)
         self.out.write("usemtl %s\n" % name)
 

@@ -15,6 +15,10 @@ data_dir = "data"
 if not os.path.exists(data_dir):
     os.mkdir(data_dir)
 
+www_dir = "www"
+if not os.path.exists(data_dir):
+    os.mkdir(data_dir)
+
 charts_dir = os.path.join(data_dir, "charts")
 if not os.path.exists(charts_dir):
     os.mkdir(charts_dir)
@@ -29,7 +33,7 @@ if not os.path.exists(elevations_dir):
 
 nasr_dir = os.path.join(charts_source_dir, "NASR")
 cloudahoy_dir = os.path.join(data_dir, "cloudahoy")
-tiles_dir = os.path.join(data_dir, "tiles")
+tiles_dir = os.path.join(www_dir, "tiles")
 sec_tiles_dir = os.path.join(tiles_dir, "sec")
 tac_tiles_dir = os.path.join(tiles_dir, "tac")
 
