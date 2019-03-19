@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <script src="https://cesiumjs.org/releases/1.55/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesiumjs.org/releases/1.55/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style type="text/css">
+      html {
+          height: 100%;
+      }
+      body {
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          background-color: #CCC;
+      }
+      #mapContainer {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          background-color: #CCC;
+          position: absolute;
+      }
+      .cesium-viewer-animationContainer {
+          display: none;
+      }
+      .cesium-viewer-bottom {
+          left: 10px !important;
+      }
+      #toolbar {
+          position: absolute;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mapContainer"></div>
+    <div id="toolbar">
+      <table>
+        <tr><td>scale height:</td><td><input type="checkbox"/></td></tr>
+      </table>
+    </div>
+    <script>
+      Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(-127,30,-110,50);
+      Cesium.Camera.DEFAULT_VIEW_FACTOR = 0;
+
+      Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4ZGY3ZDlkZi1jNmRiLTQyMzktOThjMC1iM2ZiMzJjMGY2NTciLCJpZCI6ODg0MSwic2NvcGVzIjpbImFzciIsImdjIl0sImlhdCI6MTU1MjkyNTc1OH0.mOWUCVZ0z1X5gsTN1PphbhRvs-0clxSPoFq_zVQoad4';
+      var viewer = new Cesium.Viewer('mapContainer', {
+          //imageryProvider : Cesium.createWorldImagery({
+          //    style : Cesium.IonWorldImageryStyle.AERIAL
+          //}),
+          baseLayerPicker : false,
+          terrainProvider : Cesium.createWorldTerrain({
+              requestWaterMask : true,
+              requestVertexNormals : true,
+          }),
+          terrainExaggeration : 1.0,
+          timeline: false,
+          shadows: true,
+      });
+      viewer.scene.imageryLayers.addImageryProvider(new Cesium.createTileMapServiceImageryProvider({
+          url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+      }));
+      viewer.scene.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+          url : 'tiles/sec/{z}/{x}/{y}.png',
+          credit : 'Artfahrt Inc',
+          hasAlphaChannel: true,
+          maximumLevel: 12,
+      }));
+      viewer.scene.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+          url : 'tiles/tac/{z}/{x}/{y}.png',
+          credit : 'Artfahrt Inc',
+          hasAlphaChannel: true,
+          //minimumLevel: 9,
+          maximumLevel: 12,
+      }));
+    </script>
+  </body>
+</html>
