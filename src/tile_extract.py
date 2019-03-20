@@ -110,7 +110,8 @@ def write_img(path, tile):
     dir_name, file_name = os.path.split(path)
     new_path = os.path.join(dir_name, ".new_" + file_name)
     cv2.imwrite(new_path, tile, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
-    os.remove(path)
+    if os.path.exists(path):
+        os.remove(path)
     os.rename(new_path, path)
 
 def get_lonlat(ds):

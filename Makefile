@@ -1,6 +1,5 @@
 # charts Makefile
 TOP=.
-include $(TOP)/Makefile.mk
 
 airspace: flake8
 	python3 src/airspace.py
@@ -49,7 +48,9 @@ install_packages:
 	pip3 install requests
 	pip3 install python-dateutil
 	pip3 install gdal
-	pip3 install cv2
+	pip3 install opencv-python
+
+.FORCE:
 
 # GoogleMaps API Key AIzaSyBh1uArKkL2r9IxPVRA2Xj3wviuii-zdLE
 
