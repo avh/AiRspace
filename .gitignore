@@ -1,0 +1,8 @@
+*.dat
+*.bin
+tmp
+bin
+old
+data
+TODO.txt
+__pycache__
