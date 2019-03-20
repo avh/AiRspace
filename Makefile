@@ -49,6 +49,7 @@ install_packages:
 	pip3 install requests
 	pip3 install python-dateutil
 	pip3 install gdal
+	pip3 install cv2
 
 # GoogleMaps API Key AIzaSyBh1uArKkL2r9IxPVRA2Xj3wviuii-zdLE
 

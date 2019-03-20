@@ -106,6 +106,13 @@ def combine_tiles(tile1, tile2):
         tile1[:,:,c] = tile1[:,:,c] * alpha1 + tile2[:,:,c] * alpha2
     tile1[:,:,3] = numpy.maximum(tile1[:,:,3], tile2[:,:,3])
 
+def write_img(path, tile):
+    dir_name, file_name = os.path.split(path)
+    new_path = os.path.join(dir_name, ".new_" + file_name)
+    cv2.imwrite(new_path, tile, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+    os.remove(path)
+    os.rename(new_path, path)
+
 def get_lonlat(ds):
     str = ds.GetProjection()
     lon = re.search(r'PARAMETER\["central_meridian",([^\]]+)\]', str).group(1),
@@ -321,7 +328,7 @@ def extract_tiles(levels, zoom, chart, overwrite=False):
                 if os.path.exists(tile_path) and not overwrite:
                     combine_tiles(tile, cv2.imread(tile_path, cv2.IMREAD_UNCHANGED))
 
-                cv2.imwrite(tile_path, tile, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+                write_img(tile_path, tile)
                 level.touch((tx, ty))
         print("added", count, "tiles")
 
@@ -347,7 +354,7 @@ def scale_tiles(levels, zoom):
         if not os.path.exists(tile_dir):
             os.mkdir(tile_dir)
         tile_path = os.path.join(tile_dir, "%d.png" % (xy[1]))
-        cv2.imwrite(tile_path, tile, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+        write_img(tile_path, tile)
         count += 1
         #print("saved scaled", tile_path)
     print("scaled", count, "tiles")
