@@ -4,7 +4,6 @@ import settings, objfmt
 
 max_zoom = 12
 areas = ["San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"]
-#areas = None
 testing = False
 
 charts_table = settings.db.geo_table("charts")
@@ -142,7 +141,6 @@ def lonlat2xyr(lonlat, reverse_transform, proj):
     return (round(xy[0]), round(xy[1]))
 
 def extract_tiles(levels, zoom, chart, overwrite=False):
-    print("chart", chart)
     level = levels[zoom]
     os.makedirs(level.dir, exist_ok=True)
 
@@ -361,7 +359,7 @@ def scale_tiles(levels, zoom):
 
 
 # sec charts
-if True:
+if False:
     for chart in settings.db.hash_table("sec_list").all():
         if chart['name'] + " SECTIONAL" in settings.chart_notes and (areas is None or chart['name'] in areas):
             extract_tiles(sec_levels, len(sec_levels)-1, chart)
