@@ -18,7 +18,7 @@ The outline of this project is as follows, with details on each step explained b
 
 The end result is an [interactive map](https://airspace.artfahrt.com/map.html) for Bay Area airspaces. Let me know what you think. Send me feedback if you have any. I'm curious to find out whether there are better ways of doing this.
 
-*Arthur van Hoff, [avh@artfahrtcom](email:avh@artfahrt.com)*
+*Arthur van Hoff, avh@artfahrtcom*
 
 ## Downloading data from the FAA
 
@@ -42,7 +42,7 @@ All the FAA charts use [Lambert Conformal Conic](https://en.wikipedia.org/wiki/L
 
 The projection is created by fitting a conic shape over the earth and projecting (lon,lat) to (x,y). Note that the North American Datum of 1983 is used. This refers to the shape of the earth. The earth is not a perfect sphere, so different map projections use different standard earth shapes.
 
-![Conic Projection](/imgs/conic.png)
+![Conic Projection](/imgs/Conic.png)
 
 On the San Francisco charts it is not obvious, but on the Point Barrow sectional chart, which is located in north Alaska, the longitude lines converge noticeably.
 

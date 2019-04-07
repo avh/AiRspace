@@ -186,11 +186,10 @@ def extract_tiles(levels, zoom, chart, overwrite=False):
         rgba = get_rgba(ds)
         #img = PIL.Image.fromarray(data, "RGBA")
         #print("loaded image")
-        print("rgba", rgba.shape, rgba.dtype)
         fade_edges(rgba)
         if fullname in settings.chart_notes:
             for args in settings.chart_notes[fullname]:
-                print(args)
+                #print(args)
                 edge = 5
                 margin = 10 if chart['type'] == 'sec' else 50
                 if args[0] == 'l-lon':
@@ -335,7 +334,7 @@ def extract_tiles(levels, zoom, chart, overwrite=False):
 
 
 def scale_tiles(levels, zoom):
-    print("scale_tiles", zoom)
+    print("scale_tiles", zoom, levels[zoom].dir)
     os.makedirs(levels[zoom].dir, exist_ok=True)
     s = levels[zoom].tile_size
     tmp = numpy.zeros((s*2, s*2, 4), dtype='uint8')
@@ -374,5 +373,5 @@ if True:
     for chart in settings.db.hash_table("tac_list").all():
         if chart['name'] + " TAC" in settings.chart_notes and (areas is None or chart['name'] in areas):
             extract_tiles(tac_levels, len(tac_levels)-1, chart, overwrite=True)
-    for zoom in range(len(tac_levels)-2, len(tac_levels)-4, -1):
+    for zoom in range(len(tac_levels)-2, -1, -1):
         scale_tiles(tac_levels, zoom)
