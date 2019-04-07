@@ -1,5 +1,5 @@
 # (c)2018, Arthur van Hoff
-import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine
+import os, sys, glob, gdal, osr, db, PIL.Image, math, numpy, re, affine
 import settings, objfmt
 
 charts_table = settings.db.geo_table("charts")

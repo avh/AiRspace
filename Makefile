@@ -4,6 +4,9 @@ TOP=.
 airspace: flake8
 	python3 src/airspace.py
 
+airspace_tiler: flake8
+	python3 src/airspace_tiler.py
+
 cloudahoy: flake8
 	python3 src/cloudahoy.py
 
@@ -13,8 +16,8 @@ elevation_download: flake8
 chart_extract: flake8
 	python3 src/chart_extract.py
 
-tile_extract: flake8
-	python3 src/tile_extract.py
+chart_tiler: flake8
+	python3 src/chart_tiler.py
 
 chart_list_update: flake8
 	python3 src/chart_list_update.py

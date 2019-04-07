@@ -1,9 +1,8 @@
 # (c)2019, Arthur van Hoff
 
 import shapefile, pyproj, affine, math, os, sys, shapely.geometry, panda3d.core
-import settings, objfmt, elevation, chart_proj, util
+import settings, objfmt, elevation, util, tiler, gltf
 
-# SFC
 # moffet overlapping palo alto
 # out of memory for NY sectional
 # package up more easily
@@ -11,26 +10,101 @@ import settings, objfmt, elevation, chart_proj, util
 
 add_floors = True
 add_ceilings = False
-add_pillars = False
-map_scale = (0.0001, 0.0001, 0.0001)
+add_borders = True
 remove_interior_walls = True
-surface_outside = True
 combine_points = True
+cleanup_airspace_regions = True
 airspace_cleanup = True
 airspace_intersect = True
+airspace_check = True
 airports = None
-#airports = {'KNUQ', 'KPAO'}
-#chart_name = "San Francisco TAC"
-#chart_name = "Los Angeles TAC"
-#chart_name = "San Francisco SECTIONAL"
-#chart_name = "Los Angeles SECTIONAL"
-#chart_name = "New York TAC"
-#chart_name = "New York SECTIONAL"
-chart_names = [
-    #"Los Angeles SECTIONAL",
-    #"Los Angeles TAC",
-    "San Francisco TAC",
-]
+airports = {'KSJC', 'KRHV', 'KPAO', 'KSQL', 'KOAK', 'KHWD', 'KSFO', 'KNUQ'}
+#airports = {'KOAK', 'KSFO'}
+#airports = {'KPAO', 'KNUQ'}
+
+black = (0, 0, 0, 1)
+wall_alpha = 0.8
+wall_colors = {
+    'A': (1.0, 0.5, 0.0, wall_alpha),
+    'B': (0.0, 0.5, 1.0, wall_alpha),
+    'C': (0.5, 0.0, 1.0, wall_alpha),
+    'D': (0.0, 1.0, 0.5, wall_alpha),
+    'E': (1.0, 0.5, 0.0, wall_alpha),
+    'G': (1.0, 1.0, 0.0, wall_alpha),
+}
+
+floor_alpha = 0.25
+floor_colors = {}
+for k,v in wall_colors.items():
+    floor_colors[k] = (*v[0:3], floor_alpha)
+
+ceiling_alpha = 0.1
+ceiling_colors = {}
+for k,v in wall_colors.items():
+    ceiling_colors[k] = (*v[0:3], ceiling_alpha)
+
+line_alpha = 1.0
+line_colors = {}
+for k,v in wall_colors.items():
+    line_colors[k] = (v[0]/2, v[1]/2, v[2]/2, line_alpha)
+
+
+#
+# LonLatHash:
+#
+# A hash table to map quantized map coordinates.
+#
+# Each lonlat is reduced to a quantized coordinate,
+# which is then mapped to a tuple (lon, lat, set).
+#
+# The set is modified to contains all features intersecting
+# at that coordinate.
+#
+# Line intersections are computed in lonlat space, which is
+# not correct, but close enough.
+#
+
+class LonLatHash:
+    def __init__(self):
+        self.lonlats = {}
+        self.elevations = elevation.Elevations()
+
+    def get_point(self, lonlat, debug=None):
+        if lonlat in self.lonlats:
+            p = self.lonlats[lonlat]
+        else:
+            if debug is None:
+                p = (*lonlat, set())
+            else:
+                p = (*lonlat, set(), debug)
+            self.lonlats[lonlat] = p
+        return p
+
+    def get_poly_points(self, poly, debug=None):
+        coords = poly.exterior.coords
+        if len(coords) == 0:
+            print("EMPTY POLY", poly)
+            return []
+        if coords[0] != coords[-1]:
+            print("OPEN POLY", poly)
+        else:
+            coords = coords[:-1]
+        return [self.get_point(coords[i-1], debug) for i in range(len(coords), 0, -1)]
+
+    def sfc_elevation(self, lonlat, h):
+        #return self.elevations.get(lonlat) if h == util.SFC else h
+        return 0 if h == util.SFC else h
+
+    def d2m(self, d):
+        return 2 * settings.earth_radius * math.tan(0.5*util.d2r*d)
+
+    def distance(self, p1, p2, maxdist=10):
+        d = util.distance_xy(p1, p2)
+        return util.FAR if d > maxdist else self.d2m(d)
+
+    def distance_line(self, l1, l2, p, maxdist=10):
+        d = util.distance_line_xy(l1, l2, p)
+        return util.FAR if d > maxdist else self.d2m(d)
 
 #
 # Airspace, class B, C, D
@@ -45,9 +119,9 @@ class Counted:
         self.index = Counted.count
 
 class Airspace(Counted):
-    def __init__(self, chart, id, ident, type_code):
+    def __init__(self, lonlats, id, ident, type_code):
         super().__init__()
-        self.chart = chart
+        self.lonlats = lonlats
         self.id = id
         self.ident = ident
         self.type_code = type_code
@@ -76,16 +150,13 @@ class Airspace(Counted):
                 if util.bbox_overlap(r1.bbox, r2.bbox):
                     p1, p2, p3 = util.polygon_intersection(r1.get_polygon(), r2.get_polygon())
                     if len(p2) > 0:
-                        print("found intersection", r1, r2)
-
                         for p in p1:
-                            self.add_region(Region(self, r1.lower, r1.upper, self.chart.get_poly_points(p, 'I1')))
+                            self.add_region(Region(self, r1.lower, r1.upper, self.lonlats.get_poly_points(p, 'I1')))
                         for p in p2:
-                            self.add_region(Region(self, min(r1.lower, r2.lower), max(r1.upper, r2.upper), self.chart.get_poly_points(p, 'I2')))
+                            self.add_region(Region(self, min(r1.lower, r2.lower), max(r1.upper, r2.upper), self.lonlats.get_poly_points(p, 'I2')))
                         for p in p3:
-                            self.add_region(Region(self, r2.lower, r2.upper, self.chart.get_poly_points(p, 'I3')))
+                            self.add_region(Region(self, r2.lower, r2.upper, self.lonlats.get_poly_points(p, 'I3')))
 
-                        self.check()
 
                         r2.clear()
                         j = j - 1
@@ -111,9 +182,9 @@ class Airspace(Counted):
                     p1, p2, p3 = util.polygon_intersection(r1.get_polygon(), r2.get_polygon())
                     if len(p2) > 0:
                         for p in p1:
-                            self.add_region(Region(self, r1.lower, r1.upper, self.chart.get_poly_points(p, 'S1')))
+                            self.add_region(Region(self, r1.lower, r1.upper, self.lonlats.get_poly_points(p, 'S1')))
                         for p in p2:
-                            self.add_region(Region(self, r1.lower, r2.lower, self.chart.get_poly_points(p, 'S2')))
+                            self.add_region(Region(self, r1.lower, r2.lower, self.lonlats.get_poly_points(p, 'S2')))
                         r1.clear()
                         i = i - 1
                         del self.regions[i]
@@ -121,17 +192,13 @@ class Airspace(Counted):
                         break
         return updated
 
-    def draw(self, out):
-        out.mtllib(os.path.join(settings.charts_dir, "airspace.mtl"))
-        out.newline()
-        if True:
-            out.comment("airspace %s" % (self))
-            for region in self.regions:
-                out.comment("region %s%s" % (region, "" if len(region.points) > 0 else ", skipped"))
-            out.newline()
-
+    def cleanup(self):
         for region in self.regions:
-            region.draw(out)
+            region.cleanup()
+
+    def draw(self, t, gltf):
+        for region in self.regions:
+            region.draw(t, gltf)
 
     def check(self):
         for region in self.regions:
@@ -163,16 +230,18 @@ class Region(Counted):
         newpt[2].add(self)
         for i in range(len(self.points)):
             if self.points[i] == oldpt:
-                if self.points[(i+1) % len(self.points)] == newpt:
-                    del self.points[i]
-                elif self.points[(i-1) % len(self.points)] == newpt:
-                    del self.points[i]
-                else:
-                    self.points[i] = newpt
-                return
+                self.points[i] = newpt
+            i += 1
+
+    def cleanup(self):
+        i = 0
+        while i < len(self.points):
+            if self.points[i] == self.points[(i+1) % len(self.points)]:
+                del self.points[i]
+            else:
+                i += 1
 
     def clear(self):
-        #print("clear", self, len(self.points))
         for point in self.points:
             point[2].discard(self)
         self.points = []
@@ -194,7 +263,7 @@ class Region(Counted):
         for i in range(n):
             if point == self.points[i]:
                 return
-            d = util.distance_xy(self.points[i], point)
+            d = self.airspace.lonlats.distance(self.points[i], point)
             if d < bestd:
                 besti = i
                 bestd = d
@@ -209,7 +278,7 @@ class Region(Counted):
         besti = -1
         bestd = util.FAR
         for i in range(n):
-            d = util.distance_line_xy(self.points[i], self.points[(i+1) % n], point)
+            d = self.airspace.lonlats.distance_line(self.points[i], self.points[(i+1) % n], point)
             if d < bestd:
                 besti = i
                 bestd = d
@@ -219,75 +288,65 @@ class Region(Counted):
             point[2].add(self)
             self.points.insert(besti+1, point)
             return True
+
         return False
 
     def get_polygon(self):
         if self.polygon is None:
             self.polygon = shapely.geometry.Polygon([p[0:2] for p in self.points])
+            if not self.polygon.is_valid:
+                raise Exception("invalid poligon")
         return self.polygon
 
-    def draw(self, out):
-        if len(self.points) == 0:
-            return
-
-        out.comment("region %s" % (self))
-        out.usemtl(self.airspace.type_code.replace(' ', '_'))
-        self.draw_walls(out)
-        out.newline()
+    def draw(self, t, g):
+        self.draw_walls(t, g)
 
         # floors
-        if add_floors and self.airspace.type_class < 'E' and self.lower > chart_proj.SFC:
-            out.comment("floor %s" % (self))
-            off = out.v_index
-            t = panda3d.core.Triangulator()
+        if add_floors and self.airspace.type_class < 'E' and self.lower > util.SFC:
+            tr = panda3d.core.Triangulator()
             for p in self.points:
-                t.addVertex(p[0], p[1])
-                out.v((p[0], self.lower, p[1]))
+                tr.addVertex(p[0], p[1])
             for i in range(len(self.points)):
-                t.addPolygonVertex(i)
-            t.triangulate()
-            for i in range(t.getNumTriangles()):
-                if surface_outside:
-                    out.f_v(off + t.getTriangleV0(i), off + t.getTriangleV2(i), off + t.getTriangleV1(i))
-                else:
-                    out.f_v(off + t.getTriangleV0(i), off + t.getTriangleV1(i), off + t.getTriangleV2(i))
-            out.newline()
+                tr.addPolygonVertex(i)
+            tr.triangulate()
+            for i in range(tr.getNumTriangles()):
+                g.add_triangle(
+                    t.lla2xyz((*self.points[tr.getTriangleV0(i)][0:2], self.lower)),
+                    t.lla2xyz((*self.points[tr.getTriangleV1(i)][0:2], self.lower)),
+                    t.lla2xyz((*self.points[tr.getTriangleV2(i)][0:2], self.lower))
+                )
+            g.add_mesh(g.add_rgba(floor_colors[self.airspace.type_class]))
 
         # ceilings
-        if add_ceilings and self.type_class < 'E':
-            out.comment("ceiling %s" % (self))
-            off = out.v_index
-            t = panda3d.core.Triangulator()
+        if add_ceilings and self.airspace.type_class < 'E':
+            tr = panda3d.core.Triangulator()
             for p in self.points:
-                t.addVertex(p[0], p[1])
-                out.v((p[0], self.upper, p[1]))
+                tr.addVertex(p[0], p[1])
             for i in range(len(self.points)):
-                t.addPolygonVertex(i)
-            t.triangulate()
-            for i in range(t.getNumTriangles()):
-                if surface_outside:
-                    out.f_v(off + t.getTriangleV0(i), off + t.getTriangleV2(i), off + t.getTriangleV1(i))
-                else:
-                    out.f_v(off + t.getTriangleV0(i), off + t.getTriangleV1(i), off + t.getTriangleV2(i))
-            out.newline()
+                tr.addPolygonVertex(i)
+            tr.triangulate()
+            for i in range(tr.getNumTriangles()):
+                g.add_triangle(
+                    t.lla2xyz((*self.points[tr.getTriangleV0(i)][0:2], self.upper)),
+                    t.lla2xyz((*self.points[tr.getTriangleV1(i)][0:2], self.upper)),
+                    t.lla2xyz((*self.points[tr.getTriangleV2(i)][0:2], self.upper))
+                )
+            g.add_mesh(g.add_rgba(ceiling_colors[self.airspace.type_class]))
 
-        # debugging
-        if add_pillars:
-            out.comment("debug %s" % (self))
-            out.pillar(self.points[0], h1=0, h2=85, r=100, color='GREEN')
-            out.pillar(self.points[-1], h1=0, h2=75, r=110, color='RED')
-            for i, point in enumerate(self.points):
-                out.pillar(point, h1=-50, h2=100, r=50, color='YELLOW')
-                if len(point[2]) > 1:
-                    out.pillar(point, h1=0, h2=100 + len(point[2])*100, r=75, color='BLUE')
-            out.newline()
 
-    def draw_walls(self, out):
+    def draw_walls(self, t, g):
+        lines = []
         n = len(self.points)
         for i in range(n):
-            self.draw_wall(out, i, self.points[i], self.points[(i+1) % n])
+            self.draw_wall(t, g, i, self.points[i], self.points[(i+1) % n], lines)
+        g.add_mesh(g.add_rgba(wall_colors[self.airspace.type_class]))
 
-    def draw_wall(self, out, index, p1, p2):
+        if add_borders and len(lines) > 0:
+            for p1,p2 in lines:
+                g.add_line(p1, p2)
+            g.add_mesh(g.add_rgba(line_colors[self.airspace.type_class]))
+
+    def draw_wall(self, t, g, index, p1, p2, lines):
         panels = [[self.lower, self.upper]]
         if remove_interior_walls:
             for r in p1[2].intersection(p2[2]).intersection(self.airspace.regions):
@@ -304,45 +363,23 @@ class Region(Counted):
                             p[0] = r.upper
 
         for p in panels:
-            self.draw_wall_panel(out, index, p1, p2, *p)
+            self.draw_wall_panel(t, g, index, p1, p2, *p, lines)
 
-    def draw_wall_panel(self, out, index, p1, p2, h1, h2):
+    def draw_wall_panel(self, t, g, index, p1, p2, h1, h2, lines):
         if h1 < h2:
-            v = out.v_index
-            if True:
-                out.comment("distance=%f, index=%d/%d, h1=%f, h2=%f" % (util.distance_xy(p1, p2), index, len(self.points), h1, h2))
-                if len(p1) == 4:
-                    out.comment("p1 NOTE %s" % (p1[3]))
-                for f in p1[2]:
-                    out.comment("p1 %s%s" % (f, ", self" if f == self else ""))
-                if len(p2) == 4:
-                    out.comment("p2 NOTE %s" % (p2[3]))
-                for f in p2[2]:
-                    out.comment("p2 %s%s" % (f, ", self" if f == self else ""))
             if p1[0] == p2[0] and p1[1] == p2[1]:
-                out.comment("bad panel, zero length")
-                print("bad panel", self, p1, p2, h1, h2)
+                print("bad panel, zero length", self, p1, p2, h1, h2)
                 return
             if h1 >= h2:
-                out.comment("bad panel (height)")
-                print("bad panel", self, p1, p2, h1, h2)
+                print("bad panel, invalid height", self, p1, p2, h1, h2)
                 return
-            out.v((p1[0], self.airspace.chart.sfc_elevation(p1, h1), p1[1]))
-            out.v((p2[0], self.airspace.chart.sfc_elevation(p2, h1), p2[1]))
-            out.v((p2[0], h2, p2[1]))
-            out.v((p1[0], h2, p1[1]))
-            if surface_outside:
-                out.f_v(v, v+3, v+2, v+1)
-            else:
-                out.f_v(v, v+1, v+2, v+3)
-
-    def hilite(self, out, color='RED'):
-        out.comment("hilite %s" % (self))
-        out.usemtl(color)
-        for i in range(len(self.points)):
-            p1 = self.points[i]
-            p2 = self.points[(i+1) % len(self.points)]
-            self.draw_wall_panel(out, i, p1, p2, self.lower, self.upper)
+            v1 = t.lla2xyz((p1[0], p1[1], self.airspace.lonlats.sfc_elevation(p1, h1)))
+            v2 = t.lla2xyz((p2[0], p2[1], self.airspace.lonlats.sfc_elevation(p2, h1)))
+            v3 = t.lla2xyz((p2[0], p2[1], h2))
+            v4 = t.lla2xyz((p1[0], p1[1], h2))
+            g.add_quad(v1, v2, v3, v4)
+            lines.append((v1, v2))
+            lines.append((v3, v4))
 
     def connects(self, p1, p2):
         if self not in p1[2] or self not in p2[2]:
@@ -354,13 +391,15 @@ class Region(Counted):
     def check(self):
         for i, p in enumerate(self.points):
             if self not in p[2]:
-                print(self, p)
+                print("BAD POINT", self, i, p)
+                for j, q in enumerate(self.points):
+                    print(j, q)
                 raise Exception("bad point")
             if p in self.points[i+1:]:
-                print("duplicate", self, p)
+                print("duplicate", i, len(self.points), self, p, self.points[i+1:].index(p), self.points[i+1])
 
     def ht(self, h):
-        return "SFC" if h == chart_proj.SFC else "%d" % (int(round(h * util.m2f)))
+        return "SFC" if h == util.SFC else "%d" % (int(round(h * util.m2f)))
 
     def __repr__(self):
         return self.__str__()
@@ -369,13 +408,12 @@ class Region(Counted):
         return "R[%d,%s,%s-%s,%d]" % (self.index, self.airspace.id, self.ht(self.lower), self.ht(self.upper), len(self.points))
 
 #
-# load and pre-process all the airspaces
-# associated with a chart
+# load and pre-process all the listed airspaces
 #
 
 area_number = 0
 
-def load_chart_airspaces(chart):
+def load_airspaces(lonlats):
     shp = shapefile.Reader(settings.nasr_shape_path)
     names = [field[0] for field in shp.fields]
     id_index = names.index('DeletionFlag')
@@ -384,6 +422,8 @@ def load_chart_airspaces(chart):
     lower_desc_index = names.index('LOWER_DESC')
     upper_desc_index = names.index('UPPER_DESC')
     lower_uom_index = names.index('LOWER_UOM')
+
+    print("NAME", names)
 
     # organize all shapes into airspaces
     airspaces = {}
@@ -394,7 +434,7 @@ def load_chart_airspaces(chart):
         #    type_codes.add(f.record[type_code_index])
         #    continue
         if f.shape.points[0] != f.shape.points[-1]:
-            print("shape not closed")
+            #print("shape not closed")
             continue
         if len(id) == 0:
             global area_number
@@ -419,20 +459,19 @@ def load_chart_airspaces(chart):
         lower = util.f2m * abs(float(f.record[lower_desc_index]))
         upper = util.f2m * abs(float(f.record[upper_desc_index]))
         if lower == 0 and f.record[lower_uom_index] == 'SFC':
-            lower = chart_proj.SFC
+            lower = util.SFC
 
         type_codes.add(type_code)
 
         # create airspace (if needed)
         if id not in airspaces:
-            airspaces[id] = Airspace(chart, id, ident, type_code)
+            airspaces[id] = Airspace(lonlats, id, ident, type_code)
         airspace = airspaces[id]
 
         # create points
         points = []
         for lonlat in f.shape.points[:-1]:
-            xy = chart.lonlat2xy(lonlat)
-            points.append(chart.get_point((int(xy[0]), int(xy[1]))))
+            points.append(lonlats.get_point(lonlat))
 
         # create region
         region = Region(airspace, lower, upper, points)
@@ -441,71 +480,98 @@ def load_chart_airspaces(chart):
     print("TYPE_CODES", type_codes)
 
     # select area airspaces and regions
-    chart_airspaces = []
-    chart_regions = []
+    regions = []
     for airspace in airspaces.values():
-        if util.bbox_overlap(chart.bbox, airspace.bbox):
-            chart_airspaces.append(airspace)
-            if airspace.type_class < 'E':
-                chart_regions.extend(airspace.regions)
-    print("found", len(chart_airspaces), "airspaces out of ", len(airspaces))
+        if airspace.type_class < 'E':
+            regions.extend(airspace.regions)
+    print("found", len(regions), "regions for", len(airspaces), "airspaces")
+
+    # check airspaces
+    if airspace_check:
+        for a in airspaces.values():
+            a.check()
 
     # combine shared points
     if combine_points:
         print("combining points")
-        for i in range(len(chart_regions)-1):
-            for j in range(i+1, len(chart_regions)):
-                if util.bbox_overlap(chart_regions[i].bbox, chart_regions[j].bbox):
-                    chart_regions[i].combine(chart_regions[j])
-                    chart_regions[j].combine(chart_regions[i])
+        for i in range(len(regions)-1):
+            for j in range(i+1, len(regions)):
+                if util.bbox_overlap(regions[i].bbox, regions[j].bbox):
+                    regions[i].combine(regions[j])
+                    regions[j].combine(regions[i])
+
+    # cleanup airspace regions
+    if cleanup_airspace_regions:
+        print("cleanup airspace regions")
+        for airspace in airspaces.values():
+            airspace.cleanup()
+
+    # check airspaces
+    if airspace_check:
+        for a in airspaces.values():
+            a.check()
 
     # cleanup self intersection
     if airspace_cleanup:
         print("cleanup airspaces")
-        for a1 in chart_airspaces:
+        for a1 in airspaces.values():
             if a1.type_class < 'E' and a1.cleanup_self_intersection():
                 print("airspace", a1, "required cleanup")
 
     # exclude higher class airspaces
     if airspace_intersect:
         print("cleanup intersecting airspaces")
-        for a1 in chart_airspaces:
+        for a1 in airspaces.values():
             if a1.type_class < 'E':
-                for a2 in chart_airspaces:
+                for a2 in airspaces.values():
                     if a1 != a2 and a2.type_class < 'E' and a1.type_code > a2.type_code and util.bbox_overlap(a1.bbox, a2.bbox):
+                        print("intersect", a1, a2)
                         if a1.subtract_airspace(a2):
                             print("airspace", a1, "intersected by", a2)
-    if 'KPAO' in airspaces and airspaces['KPAO'] in chart_airspaces and 'KNUQ' in airspaces and airspaces['KNUQ'] in chart_airspaces:
+    if 'KPAO' in airspaces and 'KNUQ' in airspaces:
         print("fixing KNUQ and KPAO intersection")
         airspaces['KNUQ'].subtract_airspace(airspaces['KPAO'])
 
-    return chart_airspaces
+    return airspaces
 
-def generate_chart_airspaces(chart_name):
-    chart = chart_proj.Chart(chart_name)
-    chart_airspaces = load_chart_airspaces(chart)
-    dst_dir = os.path.join(settings.data_dir, chart.name.replace(' ', '_'))
+geometricErrors = {
+    'A': 10000,
+    'B': 5000,
+    'C': 4000,
+    'D': 3000,
+    'E': 2000,
+    'G': 10000,
+}
+airspaceHeights = {
+    'A': 100000,
+    'B': 100000,
+    'C': 80000,
+    'D': 30000,
+    'E': 20000,
+    'G': 100000,
+}
+
+def generate_airspaces():
+    lonlats = LonLatHash()
+    airspaces = load_airspaces(lonlats)
+    dst_dir = os.path.join(settings.www_dir, "airspaces")
     if not os.path.exists(dst_dir):
         os.mkdir(dst_dir)
+    print("airspaces", airspaces)
 
-    # save chart (if necessary)
-    chart_path = os.path.join(dst_dir, "chart.obj")
-    if not os.path.exists(chart_path):
-        with objfmt.create(chart_path) as out:
-            out.scale = map_scale
-            out.offset = (-chart.width/2, 0, -chart.height/2)
-            chart.draw(out)
-        print("saved", chart_path)
+    t = tiler.Tiler()
+    for airspace in airspaces.values():
+        g = gltf.GLTF()
+        airspace.draw(t, g)
+        extras = {
+            'id': airspace.id,
+            'class': airspace.type_class,
+            'height': airspaceHeights[airspace.type_class],
+        }
+        geometricError = geometricErrors[airspace.type_class]
 
-    # save area airspaces
-    for airspace in chart_airspaces:
-        airspace_path = os.path.join(dst_dir, airspace.type_class + "_" + airspace.id + ".obj")
-        with objfmt.create(airspace_path) as out:
-            out.scale = map_scale
-            out.offset = (-chart.width/2, 0, -chart.height/2)
-            airspace.draw(out)
-        print("saved", airspace_path)
+        t.save_tile(dst_dir, airspace.id, g, geometricError, extras)
+
 
 if __name__ == "__main__":
-    for chart_name in chart_names:
-        generate_chart_airspaces(chart_name)
+    generate_airspaces()

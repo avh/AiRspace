@@ -2,9 +2,13 @@
 
 import os, sys, requests, math, shapely
 
+d2r = math.pi/180
+r2d = 180/math.pi
 f2m = 1/3.28084
 m2f = 1/f2m
 FAR = 1000000
+SFC = -999999
+TOP = +999999
 MININT = -sys.maxsize
 MAXINT = sys.maxsize
 
