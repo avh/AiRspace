@@ -18,7 +18,7 @@ The outline of this project is as follows, with details on each step explained b
 
 The end result is an [interactive map](https://airspace.artfahrt.com/map.html) for Bay Area airspaces. Let me know what you think. Send me feedback if you have any. I'm curious to find out whether there are better ways of doing this.
 
-*Arthur van Hoff, avh@artfahrtcom*
+*Arthur van Hoff, avh@artfahrt.com*
 
 ## Downloading data from the FAA
 
@@ -48,7 +48,7 @@ The projection is created by fitting a conic shape over the earth and projecting
 
 ![Conic Projection](/imgs/Conic.png)
 
-On the San Francisco charts it is not obvious, but on the Point Barrow sectional chart, which is located in north Alaska, the longitude lines converge noticeably.
+On the San Francisco charts it is not obvious, but on the Point Barrow sectional chart, which is located in northern Alaska, the longitude lines converge noticeably.
 
 ![Point Barrow Sectional Chart](/imgs/Point_Barrow_SEC.png)
 
@@ -103,7 +103,7 @@ Next we need to deal with intersections between airspaces. The data is not exact
 
 ![SJC and RHV intersection](imgs/SJC_RHV.png)
 
-This can be resolved by performing a polygon intersection on overlapping airspace shapes and correcting the *error* in the data by creating a section of Reid-Hillview airspace with an upper limit of 1500 MSL.
+This can be resolved by performing a polygon intersection using [shapely](https://pypi.org/project/Shapely/) on overlapping airspace shapes and correcting the *error* in the data by creating a section of Reid-Hillview airspace with an upper limit of 1500 MSL.
 
 # 3D Tiles
 

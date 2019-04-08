@@ -4,6 +4,7 @@ import settings, objfmt
 
 max_zoom = 12
 areas = ["San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"]
+#areas = ["Los Angeles"]
 testing = False
 
 charts_table = settings.db.geo_table("charts")
@@ -359,7 +360,7 @@ def scale_tiles(levels, zoom):
 
 
 # sec charts
-if False:
+if True:
     for chart in settings.db.hash_table("sec_list").all():
         if chart['name'] + " SECTIONAL" in settings.chart_notes and (areas is None or chart['name'] in areas):
             extract_tiles(sec_levels, len(sec_levels)-1, chart)
