@@ -120,3 +120,4 @@ The 3D tiles and associated B3Dm files are generate by the [airspace_tiler.py](s
 ![Bay Area airspaces](imgs/BayArea_airspaces.png)
 
 You can also try out the interactive version on [Artfahrt](https://airspace.artfahrt.com/map.html).
+Please note that all elevations are scaled by 5x to make it easier to view the airspaces.
