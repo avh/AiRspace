@@ -1,7 +1,7 @@
 # (c)2019, Arthur van Hoff
 
 import shapefile, pyproj, affine, math, os, sys, shapely.geometry, panda3d.core
-import settings, objfmt, elevation, util, tiler, gltf
+import settings, util, tiler, gltf
 
 # moffet overlapping palo alto
 # out of memory for NY sectional
@@ -67,7 +67,6 @@ for k,v in wall_colors.items():
 class LonLatHash:
     def __init__(self):
         self.lonlats = {}
-        self.elevations = elevation.Elevations()
 
     def get_point(self, lonlat, debug=None):
         if lonlat in self.lonlats:
@@ -92,7 +91,6 @@ class LonLatHash:
         return [self.get_point(coords[i-1], debug) for i in range(len(coords), 0, -1)]
 
     def sfc_elevation(self, lonlat, h):
-        #return self.elevations.get(lonlat) if h == util.SFC else h
         return 0 if h == util.SFC else h
 
     def d2m(self, d):
@@ -423,8 +421,6 @@ def load_airspaces(lonlats):
     upper_desc_index = names.index('UPPER_DESC')
     lower_uom_index = names.index('LOWER_UOM')
 
-    print("NAME", names)
-
     # organize all shapes into airspaces
     airspaces = {}
     type_codes = set()
@@ -557,7 +553,6 @@ def generate_airspaces():
     dst_dir = os.path.join(settings.www_dir, "airspaces")
     if not os.path.exists(dst_dir):
         os.mkdir(dst_dir)
-    print("airspaces", airspaces)
 
     t = tiler.Tiler()
     for airspace in airspaces.values():
@@ -571,6 +566,7 @@ def generate_airspaces():
         geometricError = geometricErrors[airspace.type_class]
 
         t.save_tile(dst_dir, airspace.id, g, geometricError, extras)
+        print("saved", dst_dir, airspace.id)
 
 
 if __name__ == "__main__":

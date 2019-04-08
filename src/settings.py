@@ -40,7 +40,7 @@ tac_tiles_dir = os.path.join(tiles_dir, "tac")
 faa_chart_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/"
 faa_nasr_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/"
 elevation_cvs = os.path.join(charts_source_dir, "ned3694_20181220_205600.csv")
-nasr_shape_path = os.path.join(nasr_dir, "Additional Data/Shape_Files/Class_Airspace")
+nasr_shape_path = os.path.join(nasr_dir, "Additional_Data/Shape_Files/Class_Airspace")
 
 earth_circumference = 40075017
 earth_radius = earth_circumference/(2*math.pi)

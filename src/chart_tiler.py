@@ -1,6 +1,6 @@
 # (c)2018, Arthur van Hoff
 import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine, cv2, shutil
-import settings, objfmt
+import settings
 
 max_zoom = 12
 areas = ["San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"]

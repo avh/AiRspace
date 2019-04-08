@@ -1,6 +1,7 @@
 # (c)2019, Arthur van Hoff
 
 import os, sys, requests, math, shapely
+import settings
 
 d2r = math.pi/180
 r2d = 180/math.pi

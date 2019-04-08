@@ -21,7 +21,7 @@ print("requesting", url)
 req = requests.get(url=url)
 html = lxml.etree.HTML(req.text)
 
-for t in html.xpath(".//a[text()='Download']"):
+for t in html.xpath(".//li/a[text()='Download']"):
     href = t.attrib["href"]
     break
 
