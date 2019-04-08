@@ -23,9 +23,6 @@
 
       Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4ZGY3ZDlkZi1jNmRiLTQyMzktOThjMC1iM2ZiMzJjMGY2NTciLCJpZCI6ODg0MSwic2NvcGVzIjpbImFzciIsImdjIl0sImlhdCI6MTU1MjkyNTc1OH0.mOWUCVZ0z1X5gsTN1PphbhRvs-0clxSPoFq_zVQoad4';
       var viewer = new Cesium.Viewer('cesiumContainer', {
-          //imageryProvider : Cesium.createWorldImagery({
-          //    style : Cesium.IonWorldImageryStyle.AERIAL
-          //}),
           imageryProvider : new Cesium.createTileMapServiceImageryProvider({
               url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
           }),
