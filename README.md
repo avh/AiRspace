@@ -121,3 +121,8 @@ The 3D tiles and associated B3Dm files are generate by the [airspace_tiler.py](s
 
 You can also try out the interactive version on [Artfahrt](https://airspace.artfahrt.com/map.html).
 Please note that all elevations are scaled by 5x to make it easier to view the airspaces.
+
+### Copyright
+
+Feel free to copy, reuse, distribute, or change, any part of this project, but give me some attribution.
+The data is not mine, so I'm not sure what the copy rights are for that.
