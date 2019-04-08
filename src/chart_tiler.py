@@ -47,6 +47,13 @@ class MapLevel:
         if self.zoom_out is not None:
             self.zoom_out.touch((txy[0]//2, txy[1]//2))
 
+    def load(self):
+        for x in os.listdir(self.dir):
+            tx = int(x)
+            for y in os.listdir(os.path.join(self.dir, x)):
+                ty = int(y[:-4])
+                self.touch((tx, ty))
+
     def info(self):
         print("zoom=%d, width=%d, tiles=%dx%d, meters_per_pixel=%f" % (self.zoom, self.map_size, self.tile_count, self.tile_count, self.meters_per_pixel))
         self.lonlat2xy((-123, 30))
@@ -361,16 +368,22 @@ def scale_tiles(levels, zoom):
 
 # sec charts
 if True:
+    sec_levels[-1].load()
+if True:
     for chart in settings.db.hash_table("sec_list").all():
         if chart['name'] + " SECTIONAL" in settings.chart_notes and (areas is None or chart['name'] in areas):
             extract_tiles(sec_levels, len(sec_levels)-1, chart)
+if True:
     for zoom in range(len(sec_levels)-2, -1, -1):
         scale_tiles(sec_levels, zoom)
 
 # tac charts
 if True:
+    tac_levels[-1].load()
+if True:
     for chart in settings.db.hash_table("tac_list").all():
         if chart['name'] + " TAC" in settings.chart_notes and (areas is None or chart['name'] in areas):
             extract_tiles(tac_levels, len(tac_levels)-1, chart, overwrite=True)
+if True:
     for zoom in range(len(tac_levels)-2, -1, -1):
         scale_tiles(tac_levels, zoom)
