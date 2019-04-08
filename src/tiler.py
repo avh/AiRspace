@@ -64,8 +64,8 @@ class Tiler:
     def save_tile(self, dir, name, gltf, geometricError=5000, extras=None):
         path = os.path.join(dir, name)
         gltf.save(path + ".b3dm")
-        gltf.save(path + ".gltf")
-        gltf.save(path + ".glb")
+        #gltf.save(path + ".gltf")
+        #gltf.save(path + ".glb")
 
         tile = {
             "asset": {

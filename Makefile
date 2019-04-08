@@ -1,6 +1,8 @@
 # charts Makefile
 TOP=.
 
+all: update chart_tiler airspace_tiler
+
 update: chart_list_update chart_download chart_shapes_download
 
 chart_list_update: flake8

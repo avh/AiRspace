@@ -473,8 +473,6 @@ def load_airspaces(lonlats):
         region = Region(airspace, lower, upper, points)
         airspace.add_region(region)
 
-    print("TYPE_CODES", type_codes)
-
     # select area airspaces and regions
     regions = []
     for airspace in airspaces.values():
