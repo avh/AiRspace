@@ -125,4 +125,4 @@ Please note that all elevations are scaled by 5x to make it easier to view the a
 ### Copyright
 
 Feel free to copy, reuse, distribute, or change, any part of this project, but give me some attribution.
-The data is not mine, so I'm not sure what the copy rights are for that.
+The data is not mine, so I'm not sure what the copyrights are for that.
