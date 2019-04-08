@@ -1,23 +1,7 @@
 # charts Makefile
 TOP=.
 
-airspace: flake8
-	python3 src/airspace.py
-
-airspace_tiler: flake8
-	python3 src/airspace_tiler.py
-
-cloudahoy: flake8
-	python3 src/cloudahoy.py
-
-elevation_download: flake8
-	python3 src/elevation_download.py
-
-chart_extract: flake8
-	python3 src/chart_extract.py
-
-chart_tiler: flake8
-	python3 src/chart_tiler.py
+update: chart_list_update chart_download chart_shapes_download
 
 chart_list_update: flake8
 	python3 src/chart_list_update.py
@@ -28,14 +12,14 @@ chart_download: flake8
 chart_shapes_download: flake8
 	python3 src/chart_shapes_download.py
 
-update-all: chart_list_update chart_download chart_extract chart_shapes_download
+chart_tiler: flake8
+	python3 src/chart_tiler.py
 
+airspace_tiler: flake8
+	python3 src/airspace_tiler.py
 
 flake8:
 	flake8 --config $(TOP)/flake8.config src/*.py
-
-test: flake8
-	python3 test.py
 
 
 install_packages:
@@ -54,7 +38,5 @@ install_packages:
 	pip3 install opencv-python
 
 .FORCE:
-
-# GoogleMaps API Key AIzaSyBh1uArKkL2r9IxPVRA2Xj3wviuii-zdLE
 
 -include Makefile.$(USER)

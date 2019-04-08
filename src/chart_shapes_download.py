@@ -1,7 +1,7 @@
 # (c)2018, Arthur van Hoff
 
 import os, requests, lxml.etree, urllib.parse, zipfile, shutil
-import settings, util, download
+import settings, util
 
 #
 # Scan the NASR page for the current download
@@ -33,7 +33,7 @@ url = urllib.parse.urljoin(url, href)
 
 name = os.path.basename(urllib.parse.urlparse(url).path)
 zip_path = os.path.join(settings.charts_source_dir, name)
-download.download_file(url, zip_path)
+util.download_file(url, zip_path)
 
 #
 # extract the file

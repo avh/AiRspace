@@ -1,7 +1,7 @@
 # (c)2018, Arthur van Hoff
 
 import requests, os, datetime, dateutil.parser, locale, zipfile, sys, glob, lxml.etree
-import settings, util, download
+import settings, util
 
 #
 # download all the chart files
@@ -64,7 +64,7 @@ def download_chart(chart):
     if os.path.exists(path):
         return
 
-    zip_path = download.download_file(chart['href'])
+    zip_path = util.download_file(chart['href'])
     if zip_path is None:
         return
 
