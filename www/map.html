@@ -10,6 +10,9 @@
     <div id="cesiumContainer"></div>
     <div id="toolbar">
       <table id="checkboxes">
+        <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(1).show = this.checked;" checked/></td><td>Sectional Charts</td></tr>
+        <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(2).show = this.checked;" checked/></td><td>TAC Charts</td></tr>
+        <tr><td>&nbsp;</td><td></td></tr>
       </table>
     </div>
     <script>
@@ -41,23 +44,23 @@
           var inspectorViewModel = viewer.cesium3DTilesInspector.viewModel;
       }
 
-      if (true) {
-          viewer.scene.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-              url : 'tiles/sec/{z}/{x}/{y}.png',
-              credit : 'Artfahrt Inc',
-              hasAlphaChannel: true,
-              maximumLevel: 12,
-          }));
-      }
-      if (false) {
-          viewer.scene.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-              url : 'tiles/tac/{z}/{x}/{y}.png',
-              credit : 'Artfahrt Inc',
-              hasAlphaChannel: true,
-              //minimumLevel: 9,
-              nmaximumLevel: 12,
-          }));
-      }
+      sec_layer = new Cesium.UrlTemplateImageryProvider({
+          url : 'tiles/sec/{z}/{x}/{y}.png',
+          credit : 'Artfahrt Inc',
+          hasAlphaChannel: true,
+          maximumLevel: 12,
+      });
+      viewer.scene.imageryLayers.addImageryProvider(sec_layer);
+
+      tac_layer = new Cesium.UrlTemplateImageryProvider({
+          url : 'tiles/tac/{z}/{x}/{y}.png',
+          credit : 'Artfahrt Inc',
+          hasAlphaChannel: true,
+          //minimumLevel: 8,
+          maximumLevel: 12,
+      });
+      viewer.scene.imageryLayers.addImageryProvider(tac_layer);
+
       viewer.scene.globe.depthTestAgainstTerrain = true;
 
       airports = ['KSFO', 'KSJC', 'KOAK', 'KSQL', 'KPAO', 'KNUQ', 'KRHV', 'KHWD'];
@@ -93,7 +96,6 @@
               table.innerHTML += "<tr><td><input type=\"checkbox\" onchange=\"showAirspace(this.checked,'" + airport + "');\"/></td><td>" + airport + "</td></tr>"
           }
       );
-
     </script>
   </body>
 </html>
