@@ -13,6 +13,7 @@
       <table id="checkboxes">
         <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(1).show = this.checked;" checked/></td><td>Sectional Charts</td></tr>
         <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(2).show = this.checked;" checked/></td><td>TAC Charts</td></tr>
+        <tr><td><input type="checkbox" onchange="showTerrain(this.checked);" checked/></td><td>Terrain</td></tr>
         <tr><td>&nbsp;</td><td></td></tr>
       </table>
     </div>
@@ -60,6 +61,18 @@
       viewer.scene.imageryLayers.addImageryProvider(tac_layer);
 
       viewer.scene.globe.depthTestAgainstTerrain = true;
+
+      function showTerrain(on)
+      {
+          if (on) {
+	      viewer.terrainProvider = Cesium.createWorldTerrain({
+                  requestWaterMask : true,
+                  requestVertexNormals : true,
+              });
+          } else {
+              viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider({});
+          }
+      }
 
       airports = ['KSFO', 'KSJC', 'KOAK', 'KSQL', 'KPAO', 'KNUQ', 'KRHV', 'KHWD'];
       airspaces = new Map()
