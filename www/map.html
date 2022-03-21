@@ -13,7 +13,7 @@
       <table id="checkboxes">
         <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(1).show = this.checked;" checked/></td><td>Sectional Charts</td></tr>
         <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(2).show = this.checked;" checked/></td><td>TAC Charts</td></tr>
-        <tr><td><input type="checkbox" onchange="showTerrain(this.checked);" checked/></td><td>Terrain</td></tr>
+        <tr><td><input type="checkbox" onchange="showTerrain(this.checked);"/></td><td>Terrain</td></tr>
         <tr><td>&nbsp;</td><td></td></tr>
       </table>
     </div>
@@ -27,11 +27,16 @@
           imageryProvider : new Cesium.UrlTemplateImageryProvider({
               url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
           }),
+          //imageryProvider : new Cesium.OpenStreetMapImageryProvider({
+          //    url : 'https://a.tile.openstreetmap.org/'
+          //}),
+
           baseLayerPicker : false,
-          terrainProvider : Cesium.createWorldTerrain({
-              requestWaterMask : true,
-              requestVertexNormals : true,
-          }),
+          terrainProvider : new Cesium.EllipsoidTerrainProvider({}),
+          //terrainProvider : Cesium.createWorldTerrain({
+          //    requestWaterMask : false,
+          //    requestVertexNormals : true,
+          //}),
           terrainShadows: true,
           terrainExaggeration : 5.0,
           timeline: false,
@@ -58,6 +63,7 @@
           //minimumLevel: 8,
           maximumLevel: 12,
       });
+
       viewer.scene.imageryLayers.addImageryProvider(tac_layer);
 
       viewer.scene.globe.depthTestAgainstTerrain = true;
@@ -66,7 +72,7 @@
       {
           if (on) {
 	      viewer.terrainProvider = Cesium.createWorldTerrain({
-                  requestWaterMask : true,
+                  requestWaterMask : false,
                   requestVertexNormals : true,
               });
           } else {
@@ -75,6 +81,7 @@
       }
 
       airports = ['KSFO', 'KSJC', 'KOAK', 'KSQL', 'KPAO', 'KNUQ', 'KRHV', 'KHWD'];
+      //airports.push('KAPC', 'KCCR', 'KLVK', 'KMRY', 'KSNS', 'KSMF', 'KSAC', 'KBAB', 'KMHR', 'KMOD', 'KSCK');
       airspaces = new Map()
       lastone = null;
 

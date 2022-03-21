@@ -24,6 +24,6 @@ body {
 #toolbar {
     position: absolute;
 }
-td {
-   text-shadow: 2px 2px 2px gray;
+#checkboxes {
+    background-color: rgba(255, 255, 255, 0.5)
 }
