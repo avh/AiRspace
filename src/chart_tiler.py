@@ -26,6 +26,7 @@ class MapLevel:
         self.zoom_in = None
 
         self.dir = os.path.join(os.path.join(settings.tiles_dir, type), "%d" % self.zoom)
+        os.makedirs(self.dir, exist_ok=True)
 
         self.meters_per_pixel = earth_circumference / self.map_size
         self.reverse_transform = affine.Affine.scale(self.map_size/earth_circumference, -self.map_size/earth_circumference)
@@ -153,6 +154,8 @@ def extract_tiles(levels, zoom, chart, overwrite=False):
     os.makedirs(level.dir, exist_ok=True)
 
     for chart_file in glob.glob(os.path.join(chart['path'], "*.tif")):
+        if 'FLY.tif' in chart_file:
+            continue
         ds = gdal.Open(chart_file)
         tx = ds.GetGeoTransform()
         if tx[1] == 1.0:

@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Cesium.js"></script>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.91/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.91/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <link href="map.css" rel="stylesheet">
   </head>
   <body>
@@ -24,9 +24,9 @@
 
       Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMDU1NzUwNi0yNjdjLTRjYTktOTJhZS02ZTMxMWI5YmNhMGEiLCJpZCI6ODg0MSwiaWF0IjoxNjI1MDIwMTk3fQ.PKYn_UKdoBoXROZTihLa_WmmpmRLEWg38uEXxFniHeI';
       var viewer = new Cesium.Viewer('cesiumContainer', {
-          imageryProvider : new Cesium.UrlTemplateImageryProvider({
-              url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
-          }),
+          //imageryProvider : new Cesium.UrlTemplateImageryProvider({
+          //    url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+          //}),
           //imageryProvider : new Cesium.OpenStreetMapImageryProvider({
           //    url : 'https://a.tile.openstreetmap.org/'
           //}),
@@ -47,6 +47,13 @@
           viewer.extend(Cesium.viewerCesium3DTilesInspectorMixin);
           var inspectorViewModel = viewer.cesium3DTilesInspector.viewModel;
       }
+      earth_layer = new Cesium.UrlTemplateImageryProvider({
+          url : 'tiles/earth/{z}/{x}/{y}.png',
+          hasAlphaChannel: false,
+          //minimumLevel: 8,
+          maximumLevel: 2,
+      });
+      viewer.scene.imageryLayers.addImageryProvider(earth_layer);
 
       sec_layer = new Cesium.UrlTemplateImageryProvider({
           url : 'tiles/sec/{z}/{x}/{y}.png',
