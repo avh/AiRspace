@@ -11,8 +11,8 @@
     <div id="toolbar">
       <i>Note that all evelations are 5x exaggerated.</i>
       <table id="checkboxes">
-        <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(1).show = this.checked;" checked/></td><td>Sectional Charts</td></tr>
-        <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(2).show = this.checked;" checked/></td><td>TAC Charts</td></tr>
+        <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(2).show = this.checked;" checked/></td><td>Sectional Charts</td></tr>
+        <tr><td><input type="checkbox" onchange="viewer.scene.imageryLayers.get(3).show = this.checked;" checked/></td><td>TAC Charts</td></tr>
         <tr><td><input type="checkbox" onchange="showTerrain(this.checked);"/></td><td>Terrain</td></tr>
         <tr><td>&nbsp;</td><td></td></tr>
       </table>
@@ -24,24 +24,12 @@
 
       Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMDU1NzUwNi0yNjdjLTRjYTktOTJhZS02ZTMxMWI5YmNhMGEiLCJpZCI6ODg0MSwiaWF0IjoxNjI1MDIwMTk3fQ.PKYn_UKdoBoXROZTihLa_WmmpmRLEWg38uEXxFniHeI';
       var viewer = new Cesium.Viewer('cesiumContainer', {
-          //imageryProvider : new Cesium.UrlTemplateImageryProvider({
-          //    url : Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
-          //}),
-          //imageryProvider : new Cesium.OpenStreetMapImageryProvider({
-          //    url : 'https://a.tile.openstreetmap.org/'
-          //}),
-
           baseLayerPicker : false,
           terrainProvider : new Cesium.EllipsoidTerrainProvider({}),
-          //terrainProvider : Cesium.createWorldTerrain({
-          //    requestWaterMask : false,
-          //    requestVertexNormals : true,
-          //}),
-          terrainShadows: true,
-          terrainExaggeration : 5.0,
           timeline: false,
           shadows: true,
       });
+
 
       if (false) {
           viewer.extend(Cesium.viewerCesium3DTilesInspectorMixin);
@@ -74,6 +62,7 @@
       viewer.scene.imageryLayers.addImageryProvider(tac_layer);
 
       viewer.scene.globe.depthTestAgainstTerrain = true;
+      viewer.scene.globe.terrainExaggeration = 5.0;
 
       function showTerrain(on)
       {
