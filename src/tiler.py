@@ -62,6 +62,9 @@ class Tiler:
 
     # generate a tile for a single gltf object
     def save_tile(self, dir, name, gltf, geometricError=5000, extras=None):
+        if self.region is None:
+            return
+
         path = os.path.join(dir, name)
         gltf.save(path + ".b3dm")
         #gltf.save(path + ".gltf")

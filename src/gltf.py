@@ -266,8 +266,8 @@ class GLTF:
         size = 12 + 8 + len(json)
 
         # data
+        data = self.buffer
         if self.buffer is not None:
-            data = self.buffer
             size = size + 8 + len(data)
 
         # header
