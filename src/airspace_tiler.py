@@ -16,9 +16,9 @@ add_verticals = True
 add_poles = True
 dump_airspaces = False
 remove_interior_walls = True
-combine_points = True
 cleanup_airspace_regions = True
 airspace_cleanup = True
+airspace_self_intersect = True
 airspace_intersect = False
 airspace_check = True
 airspace_class_E = False
@@ -96,18 +96,18 @@ class Airspace(Counted):
             if True:
                 for region in self.regions:
                     region.cleanup_edges(qtree)
-            # REMIND self intersect
+            if airspace_self_intersect:
+                self.cleanup_self_intersection(qtree)
+
 
     def add_region(self, region):
         region.check()
         self.regions.append(region)
         self.bbox = util.bbox_union(self.bbox, region.bbox)
 
-    def cleanup_self_intersection(self):
-        updated = False
-        #self.check()
-        #for i, r1 in enumerate(self.regions[:-1]):
-        #for j, r2 in enumerate(self.regions[i+1:]):
+    def cleanup_self_intersection(self, qtree):
+        count = 0
+
         i = 0
         while i < len(self.regions):
             r1 = self.regions[i]
@@ -119,17 +119,21 @@ class Airspace(Counted):
                 if util.bbox_overlap(r1.bbox, r2.bbox):
                     p1, p2, p3 = util.polygon_intersection(r1.get_polygon(), r2.get_polygon())
                     if util.not_empty(p2):
-                        #print("self intersection", p1, p2, p3)
+                        print("self intersection", p1, p2, p3)
                         if util.not_empty(p1):
                             for p in p1:
-                                self.add_region(Region(self, r1.lower, r1.upper, self.lonlats.get_poly_points(p, 'I1')))
+                                r = Region(self, r1.lower, r1.upper)
+                                r.set_poly_points(qtree, p)
+                                self.add_region(r)
                         for p in p2:
-                            self.add_region(Region(self, min(r1.lower, r2.lower), max(r1.upper, r2.upper), self.lonlats.get_poly_points(p,'I2')))
+                            r = Region(self, min(r1.lower, r2.lower), max(r1.upper, r2.upper))
+                            r.set_poly_points(qtree, p)
+                            self.add_region(r)
                         if util.not_empty(p3):
                             for p in p3:
-                                self.add_region(Region(self, r2.lower, r2.upper, self.lonlats.get_poly_points(p, 'I3')))
-
-                        #self.regions[-2].combine(self.regions[-1])
+                                r = Region(self, r2.lower, r2.upper)
+                                r.set_poly_points(qtree, p)
+                                self.add_region(r)
 
                         r2.clear()
                         j = j - 1
@@ -137,20 +141,13 @@ class Airspace(Counted):
                         r1.clear()
                         i = i - 1
                         del self.regions[i]
-                        updated = True
+                        count += 1
                         break
-        self.check()
-
-        # resolve any new self intersections
-        if updated:
-            for i in range(len(self.regions)):
-                for j in range(i+1, len(self.regions)):
-                    self.regions[i].combine(self.regions[j])
-                    self.regions[j].combine(self.regions[i])
-            for i in range(len(self.regions)):
-                self.regions[i].cleanup_stuff()
-        self.check()
-        return updated
+        if count > 0:
+            print(f"{self}: found {count} self intersections")
+            for region in self.regions:
+                region.cleanup_edges(qtree)
+            self.check()
 
     def subtract_airspace(self, other):
         updated = False
@@ -216,28 +213,55 @@ class Airspace(Counted):
 # Regions consist of closed polygons and must not contain holes
 #
 class Region(Counted):
-    def __init__(self, airspace, lower, upper, points):
+    def __init__(self, airspace, lower, upper):
         super().__init__()
         self.airspace = airspace
         self.lower = lower
         self.upper = upper
-        self.points = points
-        self.bbox = util.bbox_points(points)
+        self.bbox = util.bbox_init()
         self.polygon = None
-        for point in self.points:
-            point[2].add(self)
-        for p0, p1, p2 in util.enumerate_triples(self.points):
-            p1.angle = angle(p0, p1, p2)
+        self.points = []
 
     def simplify(self):
         self.polygon = None
         bb = self.bbox
-        self.points = [
+        self.set_poly_points(self.make_points([
             Point(bb[0], bb[1], {self}),
             Point(bb[2], bb[1], {self}),
             Point(bb[2], bb[3], {self}),
             Point(bb[0], bb[3], {self}),
-        ]
+        ]))
+
+    def set_points(self, points):
+        assert len(points) > 2
+        for point in points:
+            assert(self in point.regions)
+        self.points = points
+        self.bbox = util.bbox_points(points)
+        assert not util.bbox_empty(self.bbox)
+        self.polygon = None
+
+    def make_points(self, points):
+        pts = [Point(pt[0], pt[1], {self}) for pt in points]
+        for p0, p1, p2 in util.enumerate_triples(pts):
+            p1.angle = angle(p0, p1, p2)
+        return pts
+
+    def set_poly_points(self, qtree, poly):
+        coords = poly.exterior.coords
+        assert len(coords) > 0, "empty polygon"
+        if len(coords) == 0:
+            print("EMPTY POLY", poly)
+            return []
+        if coords[0] != coords[-1]:
+            print("OPEN POLY", poly)
+        else:
+            coords = coords[:-1]
+
+        points = self.make_points([(coords[i-1][0], coords[i-1][1]) for i in range(len(coords), 0, -1)])
+        for i, point in enumerate(points):
+            points[i] = qtree.insert_grouped(point)
+        self.set_points(points)
 
     #
     # Delete any duplicate points.
@@ -476,6 +500,8 @@ class Region(Counted):
         return ((i+1) % len(self.points)) == j or ((j+1) % len(self.points)) == i
 
     def check(self):
+        assert len(self.points) > 2, f"{self}: too few points, n={len(self.points)}"
+        assert not util.bbox_empty(self.bbox), f"{self}: empty bbox"
         for i, p in enumerate(self.points):
             if self not in p[2]:
                 print("BAD POINT", self, i, p)
@@ -572,11 +598,9 @@ def load_airspaces(airports):
             airspaces[id] = Airspace(id, ident, type_code)
         airspace = airspaces[id]
 
-        # create points
-        points = [Point(*lonlat) for lonlat in f.shape.points[:-1]]
-
         # create region
-        region = Region(airspace, lower, upper, points)
+        region = Region(airspace, lower, upper)
+        region.set_points(region.make_points(f.shape.points[:-1]))
         airspace.add_region(region)
     return airspaces
 
@@ -633,6 +657,10 @@ def generate_overlapping_airspaces(airspaces):
     if dump_airspaces:
         for airspace in airspaces:
             airspace.dump()
+
+    if airspace_check:
+        for airspace in airspaces:
+            airspace.check()
 
     # REMIND: cleanup self intersection
     # REMIND: exclude higher class airspaces

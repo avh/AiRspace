@@ -68,6 +68,9 @@ def bbox_points(pts):
 def bbox_contains(bbox, p):
     return p[0] >= bbox[0] and p[1] >= bbox[1] and p[0] <= bbox[2] and p[1] <= bbox[3]
 
+def bbox_empty(bbox):
+    return bbox[0] >= bbox[2] or bbox[1] >= bbox[3]
+
 def winding_order(points):
     sum = 0
     p0 = points[-1]
