@@ -162,7 +162,7 @@ def polygon_list(poly):
         return [y for x in [polygon_list(pts) for pts in poly.geoms] for y in x]
 
     if isinstance(poly, shapely.geometry.LineString):
-        return [shapely.geometry.Polygon(poly.coords)]
+        return []
 
     assert False, f"unexpected polygon type: {type(poly)}"
 
