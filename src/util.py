@@ -87,6 +87,8 @@ def not_empty(poly):
         for p in poly:
             if not_empty(p):
                 return True
+    elif poly.area < 1e-5:
+        return False
     elif isinstance(poly, shapely.geometry.LineString):
         return False
     elif isinstance(poly, (shapely.geometry.MultiPolygon, shapely.geometry.GeometryCollection)):
@@ -143,7 +145,7 @@ def enumerate_triples(points):
 #
 
 def polygon_list(poly):
-    if poly.area == 0:
+    if is_empty(poly):
         return []
 
     if isinstance(poly, shapely.geometry.Polygon):

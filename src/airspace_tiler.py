@@ -26,7 +26,7 @@ airports = {'KSJC', 'KRHV', 'KPAO', 'KSQL', 'KOAK', 'KHWD', 'KSFO', 'KNUQ'}
 airports.update({'KAPC', 'KCCR', 'KLVK', 'KMRY', 'KSNS'})
 airports.update({'KSMF', 'KSAC', 'KBAB', 'KMHR', 'KMOD', 'KSCK'})
 #airports = {'KSFO', 'KHWD'}
-#airports = {'KSFO'}
+#airports = {'KSMF'}
 
 black = (0, 0, 0, 1)
 red = (1, 0, 0, 1)
@@ -91,13 +91,20 @@ class Airspace(Counted):
         if True:
             qtree = QuadTree()
             for region in self.regions:
-                for i, pt in enumerate(region.points):
-                    region.points[i] = qtree.insert_grouped(pt, dist=60)
+                region.insert_points(qtree, region.make_points(region.points))
+                region.check()
+            qtree.check_tree()
             if True:
                 for region in self.regions:
                     region.cleanup_edges(qtree)
             if airspace_self_intersect:
                 self.cleanup_self_intersection(qtree)
+
+            if False:
+                print("qtree")
+                for i, pt in enumerate(qtree.all()):
+                    print(i, pt)
+
 
 
     def add_region(self, region):
@@ -119,21 +126,27 @@ class Airspace(Counted):
                 if util.bbox_overlap(r1.bbox, r2.bbox):
                     p1, p2, p3 = util.polygon_intersection(r1.get_polygon(), r2.get_polygon())
                     if util.not_empty(p2):
+                        print(f"self intersect {r1} {r2}")
                         print("self intersection", p1, p2, p3)
+                        #r1.dump()
+                        #r2.dump()
                         if util.not_empty(p1):
                             for p in p1:
                                 r = Region(self, r1.lower, r1.upper)
                                 r.set_poly_points(qtree, p)
                                 self.add_region(r)
+                                #r.dump()
                         for p in p2:
                             r = Region(self, min(r1.lower, r2.lower), max(r1.upper, r2.upper))
                             r.set_poly_points(qtree, p)
                             self.add_region(r)
+                            #r.dump()
                         if util.not_empty(p3):
                             for p in p3:
                                 r = Region(self, r2.lower, r2.upper)
                                 r.set_poly_points(qtree, p)
                                 self.add_region(r)
+                                #r.dump()
 
                         r2.clear()
                         j = j - 1
@@ -142,9 +155,10 @@ class Airspace(Counted):
                         i = i - 1
                         del self.regions[i]
                         count += 1
+
                         break
         if count > 0:
-            print(f"{self}: found {count} self intersections")
+            print(f"found {count} self intersections in {self}")
             for region in self.regions:
                 region.cleanup_edges(qtree)
             self.check()
@@ -225,14 +239,17 @@ class Region(Counted):
     def simplify(self):
         self.polygon = None
         bb = self.bbox
-        self.set_poly_points(self.make_points([
-            Point(bb[0], bb[1], {self}),
-            Point(bb[2], bb[1], {self}),
-            Point(bb[2], bb[3], {self}),
-            Point(bb[0], bb[3], {self}),
+        self.set_points(self.make_points([
+            (bb[0], bb[1]),
+            (bb[2], bb[1]),
+            (bb[2], bb[3]),
+            (bb[0], bb[3]),
         ]))
 
     def set_points(self, points):
+        if len(points) <= 2:
+            self.dump()
+            print(points)
         assert len(points) > 2
         for point in points:
             assert(self in point.regions)
@@ -247,7 +264,22 @@ class Region(Counted):
             p1.angle = angle(p0, p1, p2)
         return pts
 
+    def filter_points(self, points):
+        i = 0
+        n = len(points)
+        while i < n:
+            if points[i] is points[(i+1) % n]:
+                del points[i]
+                n -= 1
+            else:
+                i += 1
+        return points
+
+    def insert_points(self, qtree, points, dist=60):
+        self.set_points(self.filter_points([qtree.insert_grouped(pt, dist=dist) for pt in points]))
+
     def set_poly_points(self, qtree, poly):
+        print("set_poly_points", poly.area, len(list(poly.exterior.coords)))
         coords = poly.exterior.coords
         assert len(coords) > 0, "empty polygon"
         if len(coords) == 0:
@@ -258,10 +290,13 @@ class Region(Counted):
         else:
             coords = coords[:-1]
 
-        points = self.make_points([(coords[i-1][0], coords[i-1][1]) for i in range(len(coords), 0, -1)])
-        for i, point in enumerate(points):
-            points[i] = qtree.insert_grouped(point)
-        self.set_points(points)
+        lp = [(coords[i-1][0], coords[i-1][1]) for i in range(len(coords), 0, -1)]
+        #for i, p in enumerate(lp):
+        #    print(i, p)
+        lp = self.make_points([(c[0], c[1]) for c in coords])
+        #for i, p in enumerate(lp):
+        #    print(i, p)
+        self.insert_points(qtree, lp, dist=60)
 
     #
     # Delete any duplicate points.
@@ -292,7 +327,7 @@ class Region(Counted):
                 c = 0
                 rc += 1
             else:
-                i = (i + 1) % n
+                i = (i+1) % n
                 p0 = p1
                 p1 = p2
                 p2 = self.points[(i + 1) % n]
@@ -322,7 +357,8 @@ class Region(Counted):
                     pp = self.points[prev]
                     pd = p1.distance(pp)
                     if pd > 0 and (prevd - pd)/pd < thresh:
-                        #print(f"{self}: straight line {prev} to {i}, {prevd:.2f}/{pd:.2f}, {prevd - pd:.2f} {(prevd - pd)/pd:.5f}??")
+                        print(f"straight line in {self} from {prev} to {i}, {prevd:.2f}/{pd:.2f}, {prevd - pd:.2f} {(prevd - pd)/pd:.5f}??")
+                        #self.dump()
                         # knock out points inbetween prev and i
                         if prev < i:
                             del self.points[prev+1:i]
@@ -348,6 +384,8 @@ class Region(Counted):
     # find any points near edges and merge them into the polygon
     #
     def cleanup_edges(self, qtree, maxdist=75):
+        print("cleanup_edges", self)
+        count = 0
         i = 0
         n = len(self.points)
         while i < n:
@@ -355,6 +393,7 @@ class Region(Counted):
             p1 = self.points[(i + 1) % n]
             ll = p0.distance(p1)
             c = centroid([p0, p1])
+            #print("segment", p0, p1, ll, min(ll/2, maxdist), c)
             candidates = []
             for pt in qtree.all_near(c, ll/1.8):
                 if self not in pt.regions and self.overlap(pt.regions):
@@ -364,13 +403,17 @@ class Region(Counted):
                         if ld < d0 and ld < pt.distance(p1) and abs(angle(p0, pt, p1)) < 35:
                             candidates.append((d0, pt))
 
+            #print("candidates", candidates)
             if len(candidates) > 0:
                 pt = sorted(candidates)[0][1]
                 pt.regions.add(self)
                 self.points.insert(i+1, pt)
                 n += 1
+                count += 1
 
             i += 1
+        if count > 0:
+            print(f"cleaned up {count} edges in {self}")
 
     def overlap(self, regions):
         for reg in regions:
@@ -509,7 +552,9 @@ class Region(Counted):
                     print(j, q)
                 raise Exception("bad point")
             if p in self.points[i+1:]:
-                print("duplicate", i, len(self.points), self, p, self.points[i+1:].index(p))
+                print("duplicate", i, i + 1 + self.points[i+1:].index(p), len(self.points), self, p)
+                self.dump()
+                assert False
 
     def sfc_elevation(self, lonlat, h):
         return 0 if h == util.SFC else h
@@ -523,7 +568,7 @@ class Region(Counted):
         for i, p1 in enumerate(self.points):
             p0 = self.points[(i-1) % n]
             p2 = self.points[(i+1) % n]
-            print(f"    {i:4}: {p1.distance(p2):6.1f}, {bearing(p1, p2):5.1f}, {angle(p0, p1, p2):5.1f}, {p1}")
+            print(f"    {i:4}: {p1.distance(p2):8.1f}, {bearing(p1, p2):5.1f}, {angle(p0, p1, p2):6.1f}, {p1}")
 
     def __repr__(self):
         return self.__str__()
@@ -624,6 +669,7 @@ airspaceHeights = {
 def generate_overlapping_airspaces(airspaces):
     # first basic cleanup
     for airspace in airspaces:
+        #airspace.simplify()
         airspace.cleanup()
 
     print("generate_overlapping_airspaces", airspaces)
@@ -634,8 +680,7 @@ def generate_overlapping_airspaces(airspaces):
         qtree = QuadTree()
         for airspace in airspaces:
             for region in airspace.regions:
-                for i, pt in enumerate(region.points):
-                    region.points[i] = qtree.insert_grouped(Point(pt.lon, pt.lat, {region}), dist=60)
+                region.insert_points(qtree, region.make_points(region.points), 50)
 
         # merge nearby edges
         if True:

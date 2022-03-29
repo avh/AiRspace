@@ -40,12 +40,15 @@ def angle(p0, p1, p2):
 
 class Point:
     count = 0
+    accuracy = 100000
 
     def __init__(self, lon=0, lat=0, regions=None, angle=0):
         Point.count += 1
         self.index = Point.count
-        self.lon = lon
-        self.lat = lat
+        self.lon = round(lon * Point.accuracy) / Point.accuracy
+        self.lat = round(lat * Point.accuracy) / Point.accuracy
+        #self.lon = lon
+        #self.lat = lat
         self.regions = regions or set()
         self.group = None
         self.angle = angle
@@ -131,11 +134,11 @@ class QuadTree:
         bestpt = None
         bestdist = util.FAR
         for pt in self.all_bbox(point.lon - d, point.lat + d, point.lon + d, point.lat - d):
-            #if pt.regions.isdisjoint(point.regions):
-            dp = pt.distance(point)
-            if dp < bestdist:
-                bestpt = pt
-                bestdist = dp
+            if pt.regions.isdisjoint(point.regions):
+                dp = pt.distance(point)
+                if dp < bestdist:
+                    bestpt = pt
+                    bestdist = dp
 
         if point is bestpt:
             print("FOUND TWICE", point)
@@ -196,192 +199,23 @@ class QuadTree:
     def all_near(self, point, m):
         d = 2*math.atan2(m, settings.earth_radius)*util.r2d
         for pt in self.all_bbox(point.lon - d, point.lat + d, point.lon + d, point.lat - d):
-            if pt != point and pt.distance(point) <= m:
+            if pt is not point and pt.distance(point) <= m:
                 yield pt
 
-#
-# Delete any duplicate points.
-# Delete any points that are too close together.
-# Dont delete corners
-#
-def cleanup_points(reg, mindist=40, mincenterdist=1, maxangle=15):
-    rc = 0
-    i = 0
-    c = 0
-    n = len(reg.points)
-    p0 = reg.points[-1]
-    p1 = reg.points[0]
-    p2 = reg.points[1]
-    d01 = p0.distance(p1)
-    d12 = p1.distance(p2)
-    while c < n:
-        if (p0.lon == p1.lon and p0.lat == p2.lat) or (p1.lon == p2.lon and p1.lat == p2.lat) or (d01 < mindist and d12 < mindist and p1.distance(Point((p0.lon + p2.lon)/2, (p0.lat + p2.lat)/2)) < mincenterdist and angle(p0, p1, p2) < maxangle):
-            #print(f"delete {i}, {p0}, {p1}, {p2}")
-            del reg.points[i]
-            n -= 1
-            p1 = p2
-            p2 = reg.points[(i+1) % n]
-            d01 = p0.distance(p1)
-            d12 = p1.distance(p2)
-            c = 0
-            rc += 1
+    def all_bad_nodes(self, bbox=util.bbox_all()):
+        if self.center is not None:
+            yield from self.children[0].all_bad_nodes((bbox[0], bbox[1], self.center[0], self.center[1]))
+            yield from self.children[1].all_bad_nodes((bbox[0], self.center[1], self.center[0], bbox[3]))
+            yield from self.children[2].all_bad_nodes((self.center[0], bbox[1], bbox[2], self.center[1]))
+            yield from self.children[3].all_bad_nodes((self.center[0], self.center[1], bbox[2], bbox[3]))
         else:
-            i = (i + 1) % n
-            p0 = p1
-            p1 = p2
-            p2 = reg.points[(i+1) % n]
-            d01 = d12
-            d12 = p1.distance(p2)
-            c += 1
-    if rc > 0:
-        print(f"removed {rc} unnecessary points from {reg}")
+            for child in self.children:
+                if not util.bbox_contains(bbox, child):
+                    yield child, bbox
 
-def cleanup_straights(reg):
-    prev = None
-    prevd = 0
-    i = 0
-    c = 0
-    n = len(reg.points)
-    p0 = reg.points[-1]
-    p1 = reg.points[0]
-    p2 = reg.points[1]
-    b01 = bearing(p0, p1)
-    b12 = bearing(p1, p2)
-    while c < 2*n:
-        if abs(b12 - b01) > 15:
-            if prev is not None and i != (prev + 1) % n:
-                pp = reg.points[prev]
-                pd = p1.distance(pp)
-                if pd > 0 and (prevd - pd)/pd < 0.01:
-                    print(f"{reg}: straight line {prev} to {i} {prevd:.2f}/{pd:.2f}, {prevd - pd:.2f} {(prevd - pd)/pd:.5f}??")
-                    # knock out points inbetween
-                    while (prev + 1) % n != i:
-                        del reg.points[(prev + 1) % n]
-                        n -= 1
-                        if prev < i:
-                            i -= 1
-                        else:
-                            prev = prev % n
-            prev = i
-            prevd = 0
-
-        i = (i + 1) % n
-        c += 1
-        prevd += p1.distance(p2)
-        p0 = p1
-        p1 = p2
-        p2 = reg.points[(i + 1) % n]
-        b01 = b12
-        b12 = bearing(p1, p2)
-
-
-
-def cleanup_lines(qtree, reg, maxdist=25):
-    i = 0
-    n = len(reg.points)
-    while i < n:
-        p0 = reg.points[i]
-        p1 = reg.points[(i+1) % n]
-        ll = p0.distance(p1)
-        c = centroid([p0, p1])
-        for pt in qtree.all_near(c, ll/1.8):
-            if reg not in pt.regions and pt.distance_line(p0, p1) < min(ll/2, maxdist):
-                pt.regions.add(reg)
-                reg.points.insert(i+1, pt)
-                n += 1
-                break
-        i += 1
-
-def corners(points, minangle=20):
-    p0 = points[-1]
-    p1 = points[0]
-    p2 = points[1]
-    n = len(points)
-    for i in range(n):
-        a = angle(p0, p1, p2)
-        if a > minangle:
-            yield (a, p1)
-        p0 = p1
-        p1 = p2
-        p2 = points((i+2) % n)
-
-if __name__ == "__main__":
-    from airspace_tiler import load_airspaces
-    airspaces = load_airspaces({'KMRY'})
-
-    if False:
-        for airspace in airspaces.values():
-            print(airspace)
-            for reg in airspace.regions:
-                print(reg)
-                mindist = 10000
-                maxdist = -1
-                for i, pt in enumerate(reg.points):
-                    d = pt.distance(reg.points[(i + 1) % len(reg.points)])
-                    if d < mindist:
-                        mindist = d
-                    if d > maxdist:
-                        maxdist = d
-                print(f"mindist={mindist}, maxdist={maxdist}")
-
-    if False:
-        for airspace in airspaces.values():
-            for reg in airspace.regions:
-                cleanup_points(reg)
-    if True:
-        for airspace in airspaces.values():
-            for reg in airspace.regions:
-                cleanup_straights(reg)
-
-    qtree = QuadTree()
-
-    # insert all points into the quad tree
-    # points that are close together will be grouped
-    for airspace in airspaces.values():
-        for reg in airspace.regions:
-            for i, pt in enumerate(reg.points):
-                reg.points[i] = qtree.insert_grouped(pt)
-
-    #
-    # insert points into nearby lines
-    #
-    if False:
-        for airspace in airspaces.values():
-            for reg in airspace.regions:
-                cleanup_lines(qtree, reg)
-
-    n = 0
-    for pt in qtree.all():
-        n += 1
-    print(f"{n} counted points")
-
-    if True:
-        khwd = airspaces['KMRY']
-        for reg in khwd.regions:
-            print(reg)
-            for i, p1 in enumerate(reg.points):
-                p0 = reg.points[(i-1) % len(reg.points)]
-                p2 = reg.points[(i+1) % len(reg.points)]
-                d1 = p1.distance(p0)
-                d2 = p1.distance(p2)
-                d3 = p0.distance(p2)
-                c = Point((p0.lon + p2.lon)/2, (p0.lat + p2.lat)/2)
-                d4 = p1.distance(c)
-                b = bearing(p0, p1)
-                a = angle(p0, p1, p2)
-
-                print(f"{i:4}: {p1.lon:.4f},{p1.lat:.4f} {d1:.4f} {d2:.4f} {d3:.4f} {d4:.4f} {b:.4f} {a:.4f} {p1.regions}")
-                #if p1.is_grouped():
-                #    print(f"GROUP {p1.regions}")
-                #    for i, pt in enumerate(p1.group):
-                #        print(f"{i}: {pt}")
-
-    t = 0
-    n = 0
-    g = 0
-    for pt in qtree.all():
-        t += 1
-        if pt.is_grouped():
-            g += 1
-            n += len(pt.group)
-    print(f"{t} points, {n} grouped points, {g} groups")
+    def check_tree(self, bbox=util.bbox_init()):
+        bad = list(self.all_bad_nodes())
+        if len(bad) > 0:
+            for pt, bbox in bad:
+                print("bad", pt, bbox)
+            #assert False
