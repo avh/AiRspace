@@ -19,14 +19,19 @@ remove_interior_walls = True
 cleanup_airspace_regions = True
 airspace_cleanup = True
 airspace_self_intersect = True
-airspace_intersect = False
+airspace_intersect = True
 airspace_check = True
 airspace_class_E = False
 airports = {'KSJC', 'KRHV', 'KPAO', 'KSQL', 'KOAK', 'KHWD', 'KSFO', 'KNUQ'}
-airports.update({'KAPC', 'KCCR', 'KLVK', 'KMRY', 'KSNS'})
-airports.update({'KSMF', 'KSAC', 'KBAB', 'KMHR', 'KMOD', 'KSCK'})
-#airports = {'KSFO', 'KHWD'}
-#airports = {'KSMF'}
+#airports.update({'KAPC', 'KCCR', 'KLVK', 'KMRY', 'KSNS'})
+#airports.update({'KSMF', 'KSAC', 'KBAB', 'KMHR', 'KMOD', 'KSCK'})
+#airports.update({'KLAS', 'KVGT', 'KHND'})
+airports.update({'KLAX', 'KSLI', 'KLGB', 'KCNO', 'KBUR', 'KSMO', 'KCPM', 'KFUL', 'KHHR', 'KTOA', 'KRIV', 'KPMD', 'KCMP', 'KRAL', 'KEMT'})
+badairports = {'KSNA', 'KLAX', 'KPAO'}
+#airports = {'KSMF', 'KSAC'}
+#airports = {'KSJC', 'KRHV'}
+#airports = {'KLAX', 'KSLI', 'KLGB', 'KCNO', 'KBUR', 'KSMO', 'KCPM', 'KTOA', 'KRIV', 'KPMD', 'KWHP', 'KVNY'}
+#airports = {'KSNA'}
 
 black = (0, 0, 0, 1)
 red = (1, 0, 0, 1)
@@ -105,8 +110,6 @@ class Airspace(Counted):
                 for i, pt in enumerate(qtree.all()):
                     print(i, pt)
 
-
-
     def add_region(self, region):
         region.check()
         self.regions.append(region)
@@ -127,7 +130,7 @@ class Airspace(Counted):
                     p1, p2, p3 = util.polygon_intersection(r1.get_polygon(), r2.get_polygon())
                     if util.not_empty(p2):
                         print(f"self intersect {r1} {r2}")
-                        print("self intersection", p1, p2, p3)
+                        #print("self intersection", p1, p2, p3)
                         #r1.dump()
                         #r2.dump()
                         if util.not_empty(p1):
@@ -163,8 +166,8 @@ class Airspace(Counted):
                 region.cleanup_edges(qtree)
             self.check()
 
-    def subtract_airspace(self, other):
-        updated = False
+    def subtract_airspace(self, qtree, other):
+        count = 0
         i = 0
         while i < len(self.regions):
             r1 = self.regions[i]
@@ -176,32 +179,38 @@ class Airspace(Counted):
                 if util.bbox_overlap(r1.bbox, r2.bbox) and r1.upper > r2.lower:
                     p1, p2, p3 = util.polygon_intersection(r1.get_polygon(), r2.get_polygon())
                     if util.not_empty(p2):
+                        print(f"subtract regions {r1} - {r2}")
                         #print("subtract airspace", i, j, self.id, other.id)
                         if util.not_empty(p1):
                             for p in p1:
-                                self.add_region(Region(self, r1.lower, r1.upper, self.lonlats.get_poly_points(p, 'S1')))
+                                r = Region(self, r1.lower, r1.upper)
+                                r.set_poly_points(qtree, p)
+                                self.add_region(r)
                         if r1.lower < r2.lower:
                             for p in p2:
-                                self.add_region(Region(self, r1.lower, min(r2.upper, r2.lower), self.lonlats.get_poly_points(p, 'S2a')))
+                                r = Region(self, r1.lower, min(r2.upper, r2.lower))
+                                r.set_poly_points(qtree, p)
+                                self.add_region(r)
                         if r1.upper > r2.upper:
                             for p in p2:
-                                self.add_region(Region(self, max(r1.lower, r2.upper), r2.upper, self.lonlats.get_poly_points(p, 'S2b')))
+                                r = Region(self, max(r1.lower, r2.upper), r2.upper)
+                                r.set_poly_points(qtree, p)
+                                self.add_region(r)
                         # leave p3 alone
                         r1.clear()
                         i = i - 1
                         del self.regions[i]
-                        updated = True
+                        count += 1
                         break
         # resolve any new self intersections
-        if updated:
-            for i in range(len(self.regions)):
-                for j in range(i+1, len(self.regions)):
-                    self.regions[i].combine(self.regions[j])
-                    self.regions[j].combine(self.regions[i])
-            for i in range(len(self.regions)):
-                self.regions[i].cleanup_stuff()
+        if count > 0:
+            print(f"subtracted {count} regions {self} - {other}")
+            for region in self.regions:
+                region.cleanup_edges(qtree)
+            for region in other.regions:
+                region.cleanup_edges(qtree)
+            self.check()
 
-        return updated
 
     def draw(self, t, gltf):
         for region in self.regions:
@@ -384,7 +393,7 @@ class Region(Counted):
     # find any points near edges and merge them into the polygon
     #
     def cleanup_edges(self, qtree, maxdist=75):
-        print("cleanup_edges", self)
+        #print("cleanup_edges", self)
         count = 0
         i = 0
         n = len(self.points)
@@ -687,6 +696,16 @@ def generate_overlapping_airspaces(airspaces):
             for airspace in airspaces:
                 for region in airspace.regions:
                     region.cleanup_edges(qtree)
+
+        # substract higher class airspaces from lower class airspaces
+        if airspace_intersect:
+            for a1 in airspaces:
+                for a2 in airspaces:
+                    if a1 is not a2:
+                        if a1.type_class > a2.type_class and util.bbox_overlap(a1.bbox, a2.bbox):
+                            a1.subtract_airspace(qtree, a2)
+                    elif a1.type_class == a2.type_class and util.bbox_overlap(a1.bbox, a2.bbox):
+                        print(f"possible overlap {a1, a2}")
 
         if True:
             t = 0
