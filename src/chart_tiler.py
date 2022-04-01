@@ -1,9 +1,23 @@
 # (c)2018, Arthur van Hoff
+
+# REMIND: Hawaiian Islands SEC (rotated)
+# REMIND: Honolulu, Guam, Samoa (on Hawaiian Islands map)
+# REMIND: Western Aleutian Islands SEC (across date line)
+# REMIND: Miami SEC (missing)
+
+# REMIND: Base tile resolution on chart resolution
+# REMIND: Process multiple charts simultaneously
+
 import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine, cv2, shutil
 import settings
+
+#max_zoom = 10
 max_zoom = 12
 areas = None
+#areas = {nm[:-4] for nm in settings.chart_notes.keys() if nm.endswith(" SEC")}
 #areas = {"San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"}
+#areas = {"Caribbean - 1", "Caribbean - 2"}
+#areas = {"Western Aleutian Islands"}
 if areas is not None:
     print(f"processing: {areas}")
 
@@ -91,9 +105,11 @@ def fade_edges(img, nsteps=10):
 
 def extract_tile(img, rect, size=(256,256), borderValue=(0, 0, 0, 0)):
     #print("extract_tile", img.shape, rect)
-    w = rect[1][0] - rect[0][0]
-    if w > size[0]*2 or w*2 < size[0]:
-        print("warining: losing resolution", size[0]/w)
+
+    # REMIND: pick best resolution
+    #w = rect[1][0] - rect[0][0]
+    #if w > size[0]*2 or w*2 < size[0]:
+    #    print("warining: losing resolution", size[0]/w)
 
     src_rect = numpy.array(rect, dtype='float32')
     dst_rect = numpy.array([(0,0), (size[0], 0), size, (0, size[1])], dtype='float32')
@@ -142,15 +158,18 @@ def lonlat2xyr(lonlat, reverse_transform, proj):
     xy = lonlat2xy(lonlat, reverse_transform, proj)
     return (round(xy[0]), round(xy[1]))
 
-def check_lonlat(lonlat):
-    assert lonlat[0] < -50 and lonlat[0] > -180, f"invalid longitude {lonlat}"
-    assert lonlat[1] < 72 and lonlat[1] > 22, f"invalid latitude {lonlat}"
-def check_lonlat_box(lonlat1, lonlat2):
-    check_lonlat(lonlat1)
-    check_lonlat(lonlat2)
-    assert lonlat1[0] < lonlat2[0] and lonlat1[1] < lonlat2[1], f"invalid bounds {lonlat1} {lonlat2}"
-    assert lonlat2[0] - lonlat1[0] < 5 and lonlat2[1] - lonlat2[1] < 10, f"large bounds {lonlat1} {lonlat2}"
-
+def check_lon(lbl, lon):
+    assert (lon > -180 and lon < -50) or (lon > 165 and lon < 180), f"{lbl}: invalid longitude {lon}"
+def check_lat(lbl, lat):
+    assert lat > 13 and lat < 72, f"{lbl}: invalid latitude {lat}"
+def check_lonlat(lbl, lonlat):
+    check_lon(lbl, lonlat[0])
+    check_lat(lbl, lonlat[1])
+def check_lonlat_box(lbl, lonlat1, lonlat2):
+    check_lonlat(lbl, lonlat1)
+    check_lonlat(lbl, lonlat2)
+    assert lonlat1[0] < lonlat2[0] and lonlat1[1] < lonlat2[1], f"{lbl}: invalid bounds {lonlat1} {lonlat2}"
+    assert lonlat2[0] - lonlat1[0] < 5 and lonlat2[1] - lonlat2[1] < 10, f"{lbl}: large bounds {lonlat1} {lonlat2}"
 
 def extract_tiles(levels, zoom, chart, kind, overwrite=False):
     level = levels[zoom]
@@ -235,7 +254,7 @@ def extract_tiles(levels, zoom, chart, kind, overwrite=False):
             elif args[0] == 't-fix':
                 lon = float(args[1])
                 lat = float(args[2])
-                check_lonlat((lon, lat))
+                check_lonlat(filename, (lon, lat))
                 xy = lonlat2xyr((lon, lat), reverse_transform, proj)
                 xy = (xy[0], max(0, xy[1] + edge))
                 rgba[0:xy[1],:,3] = 0
@@ -254,7 +273,7 @@ def extract_tiles(levels, zoom, chart, kind, overwrite=False):
             elif args[0] == 'l-fix':
                 lon = float(args[1])
                 lat = float(args[2])
-                check_lonlat((lon, lat))
+                check_lonlat(filename, (lon, lat))
                 xy = lonlat2xyr((lon, lat), reverse_transform, proj)
                 xy = (max(0, xy[0] + edge), xy[1])
                 rgba[:,0:xy[0],3] = 0
@@ -264,17 +283,17 @@ def extract_tiles(levels, zoom, chart, kind, overwrite=False):
             elif args[0] == 'r-fix':
                 lon = float(args[1])
                 lat = float(args[2])
-                check_lonlat((lon, lat))
+                check_lonlat(filename, (lon, lat))
                 xy = lonlat2xyr((lon, lat), reverse_transform, proj)
                 xy = (min(xy[0] - edge, width), xy[1])
                 rgba[:,xy[0]:width-1,3] = 0
                 for m in range(0, margin):
                     rgba[:,xy[0]-m,3] = rgba[:,xy[0]-m,3] * (m / margin)
 
-            elif args[0] == "bounds":
+            elif args[0] == 'bounds':
                 lonlat1 = (float(args[1]), float(args[2]))
                 lonlat2 = (float(args[3]), float(args[4]))
-                check_lonlat_box(lonlat1, lonlat2)
+                check_lonlat_box(filename, lonlat1, lonlat2)
                 xy1 = lonlat2xyr(lonlat1, reverse_transform, proj)
                 xy2 = lonlat2xyr(lonlat2, reverse_transform, proj)
                 xmin = max(0, min(xy1[0], xy2[0]) + edge)
@@ -292,10 +311,10 @@ def extract_tiles(levels, zoom, chart, kind, overwrite=False):
                     rgba[ymin+m:ymax-m,xmin+m,3] = f * rgba[ymin+m:ymax-m,xmin+m,3]
                     rgba[ymin+m:ymax-m,xmax-m,3] = f * rgba[ymin+m:ymax-m,xmax-m,3]
 
-            elif args[0] == "box":
+            elif args[0] == 'box':
                 lonlat1 = (float(args[1]), float(args[2]))
                 lonlat2 = (float(args[3]), float(args[4]))
-                check_lonlat_box(lonlat1, lonlat2)
+                check_lonlat_box(filename, lonlat1, lonlat2)
                 xy1 = lonlat2xyr(lonlat1, reverse_transform, proj)
                 xy2 = lonlat2xyr(lonlat2, reverse_transform, proj)
                 xmin = max(0, min(xy1[0], xy2[0]) - edge)
@@ -380,13 +399,25 @@ def scale_tiles(levels, zoom):
         #print("saved scaled", tile_path)
     print("scaled", count, "tiles")
 
+# basic consistency checks
+if True:
+    for key, vals in settings.chart_notes.items():
+        for v in vals:
+            if v[0] in ('bounds', 'box'):
+                check_lonlat_box(key, v[1:3], v[3:])
+            elif v[0] in ('l-lon', 'r-lon'):
+                check_lon(key, v[1])
+            elif v[0] in ('b-lat', 't-lat'):
+                check_lat(key, v[1])
+            elif v[0] in ('t-fix', 'b-fix', 'l-fix', 'r-fix'):
+                check_lonlat(key, v[1:])
 
 # sec charts
 if True:
     if True:
         print("-- sec chart list--")
-        for chart in settings.db.hash_table("tac_list").all():
-            print(chart['name'])
+        for name in sorted([chart['name'] for chart in settings.db.hash_table("sec_list").all()]):
+            print(name)
         print("--")
     if True and areas is None:
         print(f"removing {os.path.join(settings.tiles_dir,'sec')}")
@@ -396,10 +427,11 @@ if True:
         sec_levels[-1].load()
     if True:
         for chart in settings.db.hash_table("sec_list").all():
-            if chart['name'] not in areas:
-                print('skipping', chart['name'])
             if areas is None or chart['name'] in areas:
-                extract_tiles(sec_levels, len(sec_levels)-1, chart, 'SEC', overwrite=areas is not None)
+                if chart['name'].startswith('Caribbean'):
+                    extract_tiles(sec_levels, len(sec_levels)-1, chart, 'VFR Chart', overwrite=areas is not None)
+                else:
+                    extract_tiles(sec_levels, len(sec_levels)-1, chart, 'SEC', overwrite=areas is not None)
     if True:
         for zoom in range(len(sec_levels)-2, -1, -1):
             scale_tiles(sec_levels, zoom)
@@ -408,7 +440,7 @@ if True:
 if True:
     if True:
         print("-- tac chart list--")
-        for chart in settings.db.hash_table("tac_list").all():
+        for name in sorted([chart['name'] for chart in settings.db.hash_table("tac_list").all()]):
             print(chart['name'])
         print("--")
     if True and areas is None:

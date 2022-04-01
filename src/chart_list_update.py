@@ -15,7 +15,7 @@ sec_list.clear()
 col = 1
 
 for tr in html.xpath(".//div[@id='sectional']/table/tbody/tr"):
-    name = ''.join(tr[0].text)
+    name = ''.join(tr[0].text).strip()
     date = ''.join(tr[col].text)
     href = tr[col].find(".//a").attrib["href"]
     sec = {
@@ -30,7 +30,7 @@ for tr in html.xpath(".//div[@id='sectional']/table/tbody/tr"):
     sec_list.set(name, sec)
 
 for tr in html.xpath(".//div[@id='caribbean']/table/tbody/tr"):
-    name = ''.join(tr[0].text)
+    name = ''.join(tr[0].text).strip()
     date = ''.join(tr[col].text)
     href = tr[col].find(".//a").attrib["href"]
     sec = {
@@ -47,7 +47,7 @@ for tr in html.xpath(".//div[@id='caribbean']/table/tbody/tr"):
 tac_list = settings.db.hash_table("tac_list")
 tac_list.clear()
 for tr in html.xpath(".//div[@id='terminalArea']/table/tbody/tr"):
-    name = ''.join(tr[0].text)
+    name = ''.join(tr[0].text).strip()
     date = ''.join(tr[col].text)
     href = tr[col].find(".//a").attrib["href"]
     tac = {
@@ -62,7 +62,7 @@ for tr in html.xpath(".//div[@id='terminalArea']/table/tbody/tr"):
     tac_list.set(name, tac)
 
 for tr in html.xpath(".//div[@id='grandCanyon']/table/tbody/tr"):
-    name = ''.join(tr[0].text)
+    name = ''.join(tr[0].text).strip()
     date = ''.join(tr[col].text)
     href = tr[col].find(".//a").attrib["href"]
     tac = {

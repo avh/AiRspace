@@ -74,56 +74,251 @@ chart_notes = {
 
     # ----------- Sectional Charts ------------
 
-    "Albuguerque SEC": [
+    "Albuquerque SEC": [
         ('l-lon', -109),
         ('b-lat', 32),
         ('t-fix', -109, 36.216),
+    ],
+    "Anchorage SEC": [
+        ('l-lon', -151.5),
+        ('b-lat', 60),
+    ],
+    "Atlanta SEC": [
+        ('l-lon', -88),
+        ('b-lat', 32),
+        ('t-fix', -88, 36.216),
+    ],
+    "Bethel SEC": [
+        ('l-lon', -173),
+        ('b-fix', -173, 59.758),
+    ],
+    "Billings SEC": [
+        ('l-lon', -109),
+        ('b-fix', -109, 44.416),
+    ],
+    "Brownsville SEC": [
+        ('l-lon', -103),
+        ('b-lat', 24),
+        ('r-fix', -96.833, 24),
+    ],
+    "Cape Lisburne SEC": [
+        ('l-lon', -171.5),
+        ('b-lat', 68),
+    ],
+    "Charlotte SEC": [
+        ('l-lon', -82),
+        ('b-lat', 32),
+    ],
+    "Cheyenne SEC": [
+        ('l-lon', -109),
+        ('b-lat', 40),
+    ],
+    "Chicago SEC": [
+        ('l-lon', -93),
+        ('b-lat', 40),
+        ('t-fix', -93, 44.203),
+    ],
+    "Cincinnati SEC": [
+        ('l-lon', -85),
+        ('b-lat', 36),
+    ],
+    "Cold Bay SEC": [
+        ('l-lon', -164),
+        ('b-fix', -164, 53.863),
+    ],
+    "Dallas-Ft Worth SEC": [
+        ('l-lon', -102),
+        ('b-lat', 32),
+    ],
+    "Dawson SEC": [
+        ('l-lon', -145),
+        ('b-lat', 64),
+    ],
+    "Denver SEC": [
+        ('l-lon', -111),
+        ('b-fix', -111, 35.585),
+    ],
+    "Detroit SEC": [
+        ('l-lon', -85),
+        ('b-lat', 40),
+    ],
+    "Dutch Harbor SEC": [
+        ('l-lon', -173),
+        ('b-lat', 52),
+        ('box', -167.4833, 54.733, -165.166, 56.133),
+        ('box', -170.883, 54.683, -169.266, 56.133),
+    ],
+    "El Paso SEC": [
+        ('l-lon', -109),
+        ('b-lat', 28),
+    ],
+    "Fairbanks SEC": [
+        ('l-lon', -158),
+        ('b-lat', 64),
+    ],
+    "Great Falls SEC": [
+        ('l-lon', -117),
+        ('b-fix', -117, 44.416),
+    ],
+    "Green Bay SEC": [
+        ('l-lon', -93),
+        ('b-lat', 44),
+    ],
+    "Halifax SEC": [
+        ('l-lon', -69),
+        ('b-lat', 44),
+    ],
+    "Hawaiian Islands SEC": [
+        # REMIND
+    ],
+    "Houston SEC": [
+        ('l-lon', -97),
+        ('b-lat', 28),
+    ],
+    "Jacksonville SEC": [
+        ('l-lon', -85),
+        ('b-lat', 28),
+        ('box', -79.9, 30.916, -78, 33),
+        ('box', -84.916, 28.18, -83.716, 29.3),
+    ],
+    "Juneau SEC": [
+        ('l-lon', -141),
+        ('b-lat', 56),
+        ('box', -142, 55, -137.25, 57.85),
+        ('box', -142, 55, -138.833, 59.55),
+    ],
+    "Kansas City SEC": [
+        ('l-lon', -97),
+        ('b-lat', 36),
+    ],
+    "Ketchikan SEC": [
+        ('l-lon', -139),
+        ('b-lat', 52),
+        ('box', -137.233, 54.533, -135.55, 55.916),
+    ],
+    "Klamath Falls SEC": [
+        ('b-lat', 40.),
+        ('l-lon', -125),
+    ],
+    "Kodiak SEC": [
+        ('l-lon', -162),
+        ('b-lat', 56),
+    ],
+    "Lake Huron SEC": [
+        ('l-lon', -85),
+        ('b-lat', 44),
+    ],
+    "Las Vegas SEC": [
+        ('l-lon', -118),
+        ('b-fix', -118, 35.583),
+    ],
+    "Los Angeles SEC": [
+        ('b-lat', 32),
+        ('l-fix', -121.583, 35),
+        ('t-fix', -121.5,36.11),
+        ('box', -125, 31, -120.11, 33.575),
+        ('box', -125, 34.245, -121.503, 37),
+    ],
+    "McGrath SEC": [
+        ('l-lon', -162),
+        ('b-lat', 60),
+    ],
+    "Memphis SEC": [
+        ('l-lon', -95),
+        ('b-lat', 32),
+    ],
+    "Miami SEC": [
+        ('l-lon', -83),
+        ('b-lat', 24),
+        ('t-fix', -78, 28.116),
+    ],
+    "Montreal SEC": [
+        ('l-lon', -77),
+        ('b-lat', 44),
+    ],
+    "New Orleans SEC": [
+        ('l-lon', -91),
+        ('b-lat', 28),
+        ('box', -87.033, 28.4, -85.9, 29.65),
+    ],
+    "New York SEC": [
+        ('l-lon', -77),
+        ('b-lat', 40),
+    ],
+    "Nome SEC": [
+        ('l-lon', -171),
+        ('b-lat', 64),
+        ('box', -171, 67, -169, 69),
+    ],
+    "Omaha SEC": [
+        ('l-lon', -101),
+        ('b-lat', 40),
+    ],
+    "Phoenix SEC": [
+        ('l-lon', -116),
+        ('t-fix', -116, 35.7),
+    ],
+    "Point Barrow SEC": [
+        ('l-lon', -157),
+        ('b-lat', 68),
+    ],
+    "St Louis SEC": [
+        ('l-lon', -91),
+        ('b-lat', 36),
+    ],
+    "Salt Lake City SEC": [
+        ('l-lon', -117),
+        ('b-lat', 40),
+    ],
+    "San Antonio SEC": [
+        ('l-lon', -103),
+        ('b-lat', 28),
     ],
     "San Francisco SEC": [
         ('l-lon', -125),
         ('b-lat', 36),
         ('t-fix', -125, 40.21),
     ],
-    "Los Angeles SEC": [
-        ('b-lat', 32),
-        ('l-lon', -122),
-        ('t-fix', -121.5,36.11),
-        ('box', -120.11, 33.575, -122, 31),
-        ('box', -121.55, 34.245, -125, 37),
-    ],
-    "Klamath Falls SEC": [
-        ('b-lat', 40.),
-        ('l-lon', -125),
-    ],
     "Seattle SEC": [
         ('l-lon', -125),
         ('b-fix', -125, 44.4),
     ],
-    "Las Vegas SEC": [
-        ('l-lon', -118),
-        ('b-fix', -118, 35.58),
+    "Seward SEC": [
+        ('l-lon', -152),
+        ('b-fix', -152, 59.333),
     ],
-    "Phoenix SEC": [
-        ('l-lon', -116),
-        ('t-fix', -116,35.7),
+    "Twin Cities SEC": [
+        ('l-lon', -101),
+        ('b-fix', -101, 44.425),
     ],
-    "Salt Lake City SEC": [
-        ('l-lon', -117),
-        ('b-lat', 40),
+    "Washington SEC": [
+        ('l-lon', -79),
+        ('b-lat', 36),
+        ('box', -73.083, 36.7, -71, 37.783),
     ],
-    "Great Falls SEC": [
-        ('l-lon', -117),
-        ('b-fix', -117, 44.416),
+    "Western Aleutian Islands West SEC": [
+        ('l-lon', 178),
+        ('b-lat', 51),
+        ('t-fix', 179.5, 53.135),
+    ],
+    "Western Aleutian Islands East SEC": [
+        ('l-fix', 169.365, 51),
+        ('t-fix', 169.5, 53.133),
+        ('b-lat', 51),
+    ],
+    "Wichita SEC": [
+        ('l-lon', -104),
+        ('b-lat', 36),
     ],
 
     # ----------- Carribean (part of sec charts) ------------
 
-    "Carribean 1 VFR": [
-        ('l-lon', -85),
+    "Caribbean 1 VFR Chart": [
+        ('l-fix', -85, 16),
         ('b-lat', 16),
     ],
-    "Carribean 2 VFR": [
-        ('l-lon', -73),
+    "Caribbean 2 VFR Chart": [
+        ('l-fix', -73, 14),
         ('b-lat', 14),
     ],
 
@@ -235,6 +430,7 @@ chart_notes = {
     # ----------- Grand Canyon (part of tac charts) ------------
 
     "Grand Canyon General Aviation": [
-        ('bounds', -114.108, 35.7, -111.308, 36.641)
+        ('bounds', -114.108, 35.633, -111.308, 36.641)
+        # REMIND: cut out inset
     ],
 }
