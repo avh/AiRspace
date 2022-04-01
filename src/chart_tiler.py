@@ -8,8 +8,9 @@
 # REMIND: Base tile resolution on chart resolution
 # REMIND: Process multiple charts simultaneously
 
-import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine, cv2, shutil
+import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine, cv2, shutil, tqdm, multiprocessing
 import settings
+
 
 #max_zoom = 10
 max_zoom = 12
@@ -63,16 +64,18 @@ class MapLevel:
             self.zoom_out.touch((txy[0]//2, txy[1]//2))
 
     def load(self):
-        for x in os.listdir(self.dir):
+        for x in tqdm.tqdm(os.listdir(self.dir)):
             tx = int(x)
             for y in os.listdir(os.path.join(self.dir, x)):
                 if y[0] != '.':
                     ty = int(y[:-4])
                     self.touch((tx, ty))
 
-    def info(self):
-        print(f"zoom={self.zoom}, width={self.map_size}, tiles={self.tile_count}x{self.tile_count}, meters_per_pixel={self.meters_per_pixel}")
-        self.lonlat2xy((-123, 30))
+    def __str__(self):
+        used = self.touched.sum()
+        total = self.tile_count*self.tile_count
+        kb = 50
+        return f"zoom={self.zoom}, width={self.map_size}, tiles={self.tile_count}x{self.tile_count}, used={used}/{total}, {100*used/total:.2f}%, {used*kb/(1024*1024):.1f}GB, meters_per_pixel={self.meters_per_pixel}"
 
 def make_levels(type, max_zoom):
     levels = [MapLevel(type, zoom) for zoom in range(0, max_zoom+1)]
@@ -169,7 +172,7 @@ def check_lonlat_box(lbl, lonlat1, lonlat2):
     check_lonlat(lbl, lonlat1)
     check_lonlat(lbl, lonlat2)
     assert lonlat1[0] < lonlat2[0] and lonlat1[1] < lonlat2[1], f"{lbl}: invalid bounds {lonlat1} {lonlat2}"
-    assert lonlat2[0] - lonlat1[0] < 5 and lonlat2[1] - lonlat2[1] < 10, f"{lbl}: large bounds {lonlat1} {lonlat2}"
+    assert lonlat2[0] - lonlat1[0] < 10 and lonlat2[1] - lonlat2[1] < 10, f"{lbl}: large bounds {lonlat1} {lonlat2}"
 
 def extract_tiles(levels, zoom, chart, kind, overwrite=False):
     level = levels[zoom]
@@ -372,90 +375,133 @@ def extract_tiles(levels, zoom, chart, kind, overwrite=False):
         print(f"added {count} tiles for {filename}")
     assert chart_count > 0, f"no charts found for {chart['name']}"
 
+def scale_worker(inq, outq, src_zoom, dst_zoom, src_dir, dst_dir, tile_size):
+    ntiles = 0
+    s = tile_size
+    n = 2**(src_zoom - dst_zoom)
+    tmp = numpy.zeros((s*n, s*n, 4), dtype='uint8')
+    while True:
+        xy = inq.get()
+        if xy[0] == 'done':
+            break
 
-def scale_tiles(levels, zoom):
-    print("scale_tiles", zoom, levels[zoom].dir)
-    os.makedirs(levels[zoom].dir, exist_ok=True)
-    s = levels[zoom].tile_size
-    tmp = numpy.zeros((s*2, s*2, 4), dtype='uint8')
-    count = 0
-    for xy in numpy.argwhere(levels[zoom].touched):
+        count = 0
         tmp[:,:,:] = 0
-        for off in [(0, 0), (1, 0), (1, 1), (0, 1)]:
-            tx = xy[0]*2 + off[0]
-            ty = xy[1]*2 + off[1]
-            tile_path = os.path.join(levels[zoom+1].dir, f"{tx}/{ty}.png")
-            if os.path.exists(tile_path):
-                tmp[s*off[1]:s*off[1]+s, s*off[0]:s*off[0]+s] = cv2.imread(tile_path, cv2.IMREAD_UNCHANGED)
+        for offx in range(n):
+            for offy in range(n):
+                tx = xy[0]*n + offx
+                ty = xy[1]*n + offy
+                tile_path = os.path.join(src_dir, f"{tx}/{ty}.png")
+                if os.path.exists(tile_path):
+                    tmp[s*offy:s*offy+s, s*offx:s*offx+s] = cv2.imread(tile_path, cv2.IMREAD_UNCHANGED)
+                    count += 1
+        if count > 0:
+            tile = cv2.resize(tmp, (s, s), interpolation=cv2.INTER_AREA)
+            tile_dir = os.path.join(dst_dir, f"{xy[0]}")
+            os.makedirs(tile_dir, exist_ok=True)
+            tile_path = os.path.join(tile_dir, f"{xy[1]}.png")
+            write_img(tile_path, tile)
+            ntiles += 1
 
-        tile = cv2.resize(tmp, (s, s), interpolation=cv2.INTER_LANCZOS4)
-        #print("tile", tile.shape, tile.dtype)
-        tile_dir = os.path.join(levels[zoom].dir, f"{xy[0]}")
-        if not os.path.exists(tile_dir):
-            os.mkdir(tile_dir)
-        tile_path = os.path.join(tile_dir, f"{xy[1]}.png")
-        write_img(tile_path, tile)
-        count += 1
-        #print("saved scaled", tile_path)
-    print("scaled", count, "tiles")
+    outq.put(ntiles)
 
-# basic consistency checks
-if True:
-    for key, vals in settings.chart_notes.items():
-        for v in vals:
-            if v[0] in ('bounds', 'box'):
-                check_lonlat_box(key, v[1:3], v[3:])
-            elif v[0] in ('l-lon', 'r-lon'):
-                check_lon(key, v[1])
-            elif v[0] in ('b-lat', 't-lat'):
-                check_lat(key, v[1])
-            elif v[0] in ('t-fix', 'b-fix', 'l-fix', 'r-fix'):
-                check_lonlat(key, v[1:])
+def scale_tiles(levels, top_level=0, maxworkers=16):
+    for dst_zoom in range(len(levels)-2, top_level-1, -1):
+        print("scale_tiles", levels[dst_zoom])
 
-# sec charts
-if True:
+        # fork workers
+        src_zoom = min(dst_zoom+1, len(levels)-1)
+        nworkers = max(1, min(levels[dst_zoom].tile_count, maxworkers))
+        inq = ctx.Queue(nworkers*2)
+        outq = ctx.Queue(nworkers*2)
+        src_dir = levels[src_zoom].dir
+        dst_dir = levels[dst_zoom].dir
+        tile_size = levels[dst_zoom].tile_size
+        for _ in range(nworkers):
+            ctx.Process(target=scale_worker, args=(inq, outq, src_zoom, dst_zoom, src_dir, dst_dir, tile_size)).start()
+
+        # process each level
+        os.makedirs(dst_dir, exist_ok=True)
+        for xy in tqdm.tqdm(numpy.argwhere(levels[dst_zoom].touched)):
+            inq.put(xy)
+        for _ in range(nworkers):
+            inq.put(('done', None))
+
+        # count results
+        ntiles = 0
+        for _ in range(nworkers):
+            ntiles += outq.get()
+        print(f"level {dst_zoom}: scaled {ntiles} tiles using {nworkers} workers")
+
+if __name__ == '__main__':
+    ctx = multiprocessing.get_context('spawn')
+
+    # basic consistency checks
     if True:
-        print("-- sec chart list--")
-        for name in sorted([chart['name'] for chart in settings.db.hash_table("sec_list").all()]):
-            print(name)
-        print("--")
-    if True and areas is None:
-        print(f"removing {os.path.join(settings.tiles_dir,'sec')}")
-        shutil.rmtree(os.path.join(settings.tiles_dir,'sec'))
+        for key, vals in settings.chart_notes.items():
+            for v in vals:
+                if v[0] in ('bounds', 'box'):
+                    check_lonlat_box(key, v[1:3], v[3:])
+                elif v[0] in ('l-lon', 'r-lon'):
+                    check_lon(key, v[1])
+                elif v[0] in ('b-lat', 't-lat'):
+                    check_lat(key, v[1])
+                elif v[0] in ('t-fix', 'b-fix', 'l-fix', 'r-fix'):
+                    check_lonlat(key, v[1:])
+
+    # scale test
     if True:
         sec_levels = make_levels('sec', max_zoom)
+        print(f"loading {sec_levels[-1].dir}")
         sec_levels[-1].load()
-    if True:
-        for chart in settings.db.hash_table("sec_list").all():
-            if areas is None or chart['name'] in areas:
-                if chart['name'].startswith('Caribbean'):
-                    extract_tiles(sec_levels, len(sec_levels)-1, chart, 'VFR Chart', overwrite=areas is not None)
-                else:
-                    extract_tiles(sec_levels, len(sec_levels)-1, chart, 'SEC', overwrite=areas is not None)
-    if True:
-        for zoom in range(len(sec_levels)-2, -1, -1):
-            scale_tiles(sec_levels, zoom)
+        for i, level in enumerate(sec_levels):
+            print(i, level)
 
-# tac charts
-if True:
-    if True:
-        print("-- tac chart list--")
-        for name in sorted([chart['name'] for chart in settings.db.hash_table("tac_list").all()]):
-            print(chart['name'])
-        print("--")
-    if True and areas is None:
-        print(f"removing {os.path.join(settings.tiles_dir,'tac')}")
-        shutil.rmtree(os.path.join(settings.tiles_dir,'tac'))
-    if True:
-        tac_levels = make_levels('tac', max_zoom)
-        tac_levels[-1].load()
-    if True:
-        for chart in settings.db.hash_table("tac_list").all():
-            if areas is None or chart['name'] in areas:
-                if chart['name'] == 'Grand Canyon':
-                    extract_tiles(tac_levels, len(tac_levels)-1, chart, 'General Aviation', overwrite=areas is not None)
-                else:
-                    extract_tiles(tac_levels, len(tac_levels)-1, chart, 'TAC', overwrite=areas is not None)
-    if True:
-        for zoom in range(len(tac_levels)-2, -1, -1):
-            scale_tiles(tac_levels, zoom)
+        scale_tiles(sec_levels)
+
+
+    # sec charts
+    if False:
+        if True:
+            print("-- sec chart list--")
+            for name in sorted([chart['name'] for chart in settings.db.hash_table("sec_list").all()]):
+                print(name)
+            print("--")
+        if True and areas is None:
+            print(f"removing {os.path.join(settings.tiles_dir,'sec')}")
+            shutil.rmtree(os.path.join(settings.tiles_dir,'sec'))
+        if True:
+            sec_levels = make_levels('sec', max_zoom)
+            sec_levels[-1].load()
+        if True:
+            for chart in settings.db.hash_table("sec_list").all():
+                if areas is None or chart['name'] in areas:
+                    if chart['name'].startswith('Caribbean'):
+                        extract_tiles(sec_levels, len(sec_levels)-1, chart, 'VFR Chart', overwrite=areas is not None)
+                    else:
+                        extract_tiles(sec_levels, len(sec_levels)-1, chart, 'SEC', overwrite=areas is not None)
+        if True:
+            scale_tiles(sec_levels)
+
+    # tac charts
+    if False:
+        if True:
+            print("-- tac chart list--")
+            for name in sorted([chart['name'] for chart in settings.db.hash_table("tac_list").all()]):
+                print(chart['name'])
+            print("--")
+        if True and areas is None:
+            print(f"removing {os.path.join(settings.tiles_dir,'tac')}")
+            shutil.rmtree(os.path.join(settings.tiles_dir,'tac'))
+        if True:
+            tac_levels = make_levels('tac', max_zoom)
+            tac_levels[-1].load()
+        if True:
+            for chart in settings.db.hash_table("tac_list").all():
+                if areas is None or chart['name'] in areas:
+                    if chart['name'] == 'Grand Canyon':
+                        extract_tiles(tac_levels, len(tac_levels)-1, chart, 'General Aviation', overwrite=areas is not None)
+                    else:
+                        extract_tiles(tac_levels, len(tac_levels)-1, chart, 'TAC', overwrite=areas is not None)
+        if True:
+            scale_tiles(tac_levels)

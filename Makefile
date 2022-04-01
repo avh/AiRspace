@@ -34,6 +34,7 @@ install_packages:
 	pip3 install pillow
 	pip3 install redis
 	pip3 install numpy
+	pip3 install tqdm
 	pip3 install requests
 	pip3 install python-dateutil
 	pip3 install gdal
