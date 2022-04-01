@@ -450,7 +450,7 @@ if __name__ == '__main__':
                     check_lonlat(key, v[1:])
 
     # scale test
-    if True:
+    if False:
         sec_levels = make_levels('sec', max_zoom)
         print(f"loading {sec_levels[-1].dir}")
         sec_levels[-1].load()
@@ -461,7 +461,7 @@ if __name__ == '__main__':
 
 
     # sec charts
-    if False:
+    if True:
         if True:
             print("-- sec chart list--")
             for name in sorted([chart['name'] for chart in settings.db.hash_table("sec_list").all()]):
