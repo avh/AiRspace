@@ -3,23 +3,18 @@
 # REMIND: Hawaiian Islands SEC (rotated)
 # REMIND: Honolulu, Guam, Samoa (on Hawaiian Islands map)
 # REMIND: Western Aleutian Islands SEC (across date line)
-# REMIND: Miami SEC (missing)
+# REMIND: r-lon
 
-# REMIND: Base tile resolution on chart resolution
-# REMIND: Process multiple charts simultaneously
-
-import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine, cv2, shutil, tqdm, multiprocessing, filelock, hashlib
+import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine
+import cv2, shutil, tqdm, multiprocessing, filelock, hashlib, time
 import settings
 
 
-#max_zoom = 10
 max_zoom = 13
 tile_size = 256
 areas = None
-#areas = {nm[:-4] for nm in settings.chart_notes.keys() if nm.endswith(" SEC")}
 #areas = {"San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"}
 #areas = {"Caribbean - 1", "Caribbean - 2"}
-#areas = {"Western Aleutian Islands"}
 if areas is not None:
     print(f"processing: {areas}")
 
@@ -129,12 +124,15 @@ def combine_tiles(tile1, tile2):
         tile1[:,:,3] = numpy.maximum(tile1[:,:,3], tile2[:,:,3])
 
 def write_img(path, tile):
-    dir_name, file_name = os.path.split(path)
-    new_path = os.path.join(dir_name, ".new_" + file_name)
-    cv2.imwrite(new_path, tile, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
-    if os.path.exists(path):
-        os.remove(path)
-    os.rename(new_path, path)
+    if tile[:,:,3].any():
+        dir_name, file_name = os.path.split(path)
+        new_path = os.path.join(dir_name, ".new_" + file_name)
+        cv2.imwrite(new_path, tile, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+        if os.path.exists(path):
+            os.remove(path)
+        os.rename(new_path, path)
+        return True
+    return False
 
 def get_lonlat(ds):
     str = ds.GetProjection()
@@ -186,6 +184,8 @@ def list_charts_for_tiling(chart_list, chart, kind):
         if filename not in settings.chart_notes:
             print(f"warning: no settings for {filename}, skipping")
             continue
+        if len(settings.chart_notes[filename]) == 0:
+            continue
         ds = gdal.Open(chart_file)
         tx = ds.GetGeoTransform()
         if tx[1] == 1.0:
@@ -214,208 +214,6 @@ def list_charts_for_tiling(chart_list, chart, kind):
         map_level = min(math.ceil(math.log2(360*(x2-x1)/tile_size)), max_zoom)
 
         chart_list.append((map_level, filename, chart_file))
-
-
-def extract_tiles(levels, zoom, chart, kind, overwrite=False):
-    level = levels[zoom]
-    os.makedirs(level.dir, exist_ok=True)
-    chart_count = 0
-
-    for chart_file in glob.glob(os.path.join(chart['path'], "*.tif")):
-        filename = os.path.splitext(os.path.basename(chart_file))[0]
-        if f" {kind} " in filename:
-            filename = filename[0:filename.rindex(' ')]
-        if f" {kind}" not in filename:
-            continue
-        if filename not in settings.chart_notes:
-            print(f"warning: no settings for {filename}, skipping")
-            continue
-        ds = gdal.Open(chart_file)
-        tx = ds.GetGeoTransform()
-        if tx[1] == 1.0:
-            print("skipping", chart_file)
-            continue
-        chart_count += 1
-        width = ds.RasterXSize
-        height = ds.RasterYSize
-        print(f"extract_tiles, zoom={zoom}, {chart['name']}, {filename}, {chart['type']}, kind={kind}, size={width}x{height}")
-
-        #lonlat = get_lonlat(ds)
-        #print("lonlat", lonlat)
-        #print(chart)
-
-        # projection
-        proj = pyproj.Proj(get_projection(ds))
-        forward_transform = affine.Affine(*get_transform(ds)[:6])
-        reverse_transform = ~forward_transform
-
-        lon_min = 360
-        lat_min = 180
-        lon_max = -360
-        lat_max = - 180
-        for xy in [(0, 0), (width, 0), (width/2, 0), (0, height), (width/2, height), (width, height)]:
-            lon,lat = xy2lonlat(xy, forward_transform, proj)
-            lon_min = min(lon, lon_min)
-            lon_max = max(lon, lon_max)
-            lat_min = min(lat, lat_min)
-            lat_max = max(lat, lat_max)
-
-        # load image
-        rgba = get_rgba(ds)
-        #img = PIL.Image.fromarray(data, "RGBA")
-        #print("loaded image")
-        fade_edges(rgba)
-        for args in settings.chart_notes[filename]:
-            #print(args)
-            edge = 5
-            margin = 10 if chart['type'] == 'sec' else 50
-
-            if args[0] == 'l-lon':
-                lastxy = (-1, -1)
-                lon = float(args[1])
-                for lat in numpy.arange(lat_max+1, lat_min-1, -0.1):
-                    xy = lonlat2xyr((lon,lat), reverse_transform, proj)
-                    xy = (xy[0] + edge, xy[1])
-                    for y in range(max(0, lastxy[1]), min(height-1, xy[1])):
-                        x = round(lastxy[0] + (xy[0] - lastxy[0]) * (y - lastxy[1]) / (xy[1] - lastxy[1]))
-                        rgba[y, 0:x, 3] = 0
-                        for m in range(0, margin):
-                            rgba[y, x + m, 3] = rgba[y, x + m, 3] * m / margin
-                    lastxy = xy
-
-            elif args[0] == 'b-lat':
-                lastxy = (-1, -1)
-                lat = float(args[1])
-                for lon in numpy.arange(lon_min-1, lon_max+1, 0.1):
-                    xy = lonlat2xyr((lon,lat), reverse_transform, proj)
-                    xy = (xy[0], xy[1] - edge)
-                    for x in range(max(0, lastxy[0]), min(width-1, xy[0])):
-                        y = round(lastxy[1] + (xy[1] - lastxy[1]) * (x - lastxy[0]) / (xy[0] - lastxy[0]))
-                        rgba[y:height-1, x, 3] = 0
-                        for m in range(0, margin):
-                            rgba[y + m, x, 3] = rgba[y + m, x, 3] * m / margin
-                    lastxy = xy
-
-            elif args[0] == 't-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                check_lonlat(filename, (lon, lat))
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (xy[0], max(0, xy[1] + edge))
-                rgba[0:xy[1],:,3] = 0
-                for m in range(0, margin):
-                    rgba[xy[1]+m,:,3] = rgba[xy[1]+m,:,3] * (m / margin)
-
-            elif args[0] == 'b-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (xy[0], min(xy[1] - edge, height))
-                rgba[xy[1]:height-1,:,3] = 0
-                for m in range(0, margin):
-                    rgba[xy[1]-m,:,3] = rgba[xy[1]-m,:,3] * (m / margin)
-
-            elif args[0] == 'l-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                check_lonlat(filename, (lon, lat))
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (max(0, xy[0] + edge), xy[1])
-                rgba[:,0:xy[0],3] = 0
-                for m in range(0, margin):
-                    rgba[:,xy[0]+m,3] = rgba[:,xy[0]+m,3] * (m / margin)
-
-            elif args[0] == 'r-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                check_lonlat(filename, (lon, lat))
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (min(xy[0] - edge, width), xy[1])
-                rgba[:,xy[0]:width-1,3] = 0
-                for m in range(0, margin):
-                    rgba[:,xy[0]-m,3] = rgba[:,xy[0]-m,3] * (m / margin)
-
-            elif args[0] == 'bounds':
-                lonlat1 = (float(args[1]), float(args[2]))
-                lonlat2 = (float(args[3]), float(args[4]))
-                check_lonlat_box(filename, lonlat1, lonlat2)
-                xy1 = lonlat2xyr(lonlat1, reverse_transform, proj)
-                xy2 = lonlat2xyr(lonlat2, reverse_transform, proj)
-                xmin = max(0, min(xy1[0], xy2[0]) + edge)
-                xmax = min(width-1, max(xy1[0], xy2[0]) - edge)
-                ymin = max(0, min(xy1[1], xy2[1]) + edge)
-                ymax = min(height-1, max(xy1[1], xy2[1]) - edge)
-                rgba[0:ymin,:,3] = 0
-                rgba[ymax:height,:,3] = 0
-                rgba[:,0:xmin,3] = 0
-                rgba[:,xmax:width] = 0
-                for m in range(0, margin):
-                    f = m/margin
-                    rgba[ymin+m,xmin+m:xmax-m,3] = f * rgba[ymin+m,xmin+m:xmax-m,3]
-                    rgba[ymax-m,xmin+m:xmax-m,3] = f * rgba[ymax-m,xmin+m:xmax-m,3]
-                    rgba[ymin+m:ymax-m,xmin+m,3] = f * rgba[ymin+m:ymax-m,xmin+m,3]
-                    rgba[ymin+m:ymax-m,xmax-m,3] = f * rgba[ymin+m:ymax-m,xmax-m,3]
-
-            elif args[0] == 'box':
-                lonlat1 = (float(args[1]), float(args[2]))
-                lonlat2 = (float(args[3]), float(args[4]))
-                check_lonlat_box(filename, lonlat1, lonlat2)
-                xy1 = lonlat2xyr(lonlat1, reverse_transform, proj)
-                xy2 = lonlat2xyr(lonlat2, reverse_transform, proj)
-                xmin = max(0, min(xy1[0], xy2[0]) - edge)
-                xmax = min(width-1, max(xy1[0], xy2[0]) + edge)
-                ymin = max(0, min(xy1[1], xy2[1]) - edge)
-                ymax = min(height-1, max(xy1[1], xy2[1]) + edge)
-                rgba[ymin:ymax,xmin:xmax,3] = 0
-                #print("BOX", lonlat1, lonlat2, xy1, xy2, xmin, xmax, ymin, ymax)
-                for m in range(0, margin):
-                    f = m/margin
-                    rgba[max(0,ymin-m),max(xmin-m,0):min(xmax+m,width-1),3] = f * rgba[max(0,ymin-m),max(xmin-m,0):min(xmax+m,width-1),3]
-                    rgba[max(0,ymin-m):min(ymax+m,height-1),min(xmax+m,width-1),3] = f * rgba[max(0,ymin-m):min(ymax+m,height-1),min(xmax+m,width-1),3]
-                    rgba[min(ymax+m,height-1),max(xmin-m,0):min(xmax+m,width-1),3] = f * rgba[min(ymax+m,height-1),max(xmin-m,0):min(xmax+m,width-1),3]
-            else:
-                print("warning: ignoring", args)
-
-        #print("bounds", (lon_min, lat_min), (lon_max, lat_max))
-        xy = level.lonlat2xy((lon_min, lat_max))
-        #print(xy)
-        tile_min = (round(xy[0]) // tile_size, round(xy[1]) // tile_size)
-        xy = level.lonlat2xy((lon_max, lat_min))
-        #print(xy)
-        tile_max = (round(xy[0]) // tile_size, round(xy[1]) // tile_size)
-        #print("tiles", tile_min, tile_max, (tile_max[0] - tile_min[0], tile_max[1] - tile_min[1]))
-        #print("tile_size", width // (tile_max[0] - tile_min[0]))
-
-        count = 0
-        for tx in range(tile_min[0]-1, tile_max[0]+1):
-            tile_dir = os.path.join(level.dir, f"{tx}")
-            if not os.path.exists(tile_dir):
-                os.mkdir(tile_dir)
-            for ty in range(tile_min[1]-1, tile_max[1]+1):
-                tile_path = os.path.join(tile_dir, f"{ty}.png")
-
-                rect = [
-                    lonlat2xy(level.xy2lonlat(((tx + xy[0]) * tile_size, (ty + xy[1])*tile_size)), reverse_transform, proj) for xy in [(0, 0), (1, 0), (1, 1), (0, 1)]
-                ]
-
-                # boundary check
-                if max(rect[1][0], rect[2][0]) <= 0 or min(rect[0][0], rect[3][0]) >= rgba.shape[1] or min(rect[2][1], rect[3][1]) <= 0 or max(rect[0][1], rect[1][1]) >= rgba.shape[0]:
-                    continue
-
-                #print("tile", (tx, ty), rect)
-                count += 1
-                tile = extract_tile(rgba, rect, (tile_size, tile_size))
-
-                with filelock.FileLock(tile_path):
-                    if os.path.exists(tile_path) and not overwrite:
-                        combine_tiles(tile, cv2.imread(tile_path, cv2.IMREAD_UNCHANGED))
-                    write_img(tile_path, tile)
-
-                level.touch((tx, ty))
-
-        assert count > 0, f"no tiles found for {chart['name']}"
-        print(f"added {count} tiles for {filename}")
-    assert chart_count > 0, f"no charts found for {chart['name']}"
 
 def process_chart(inq, outq, level, overwrite):
     touched = []
@@ -447,11 +245,18 @@ def process_chart(inq, outq, level, overwrite):
             lat_min = min(lat, lat_min)
             lat_max = max(lat, lat_max)
 
+        if lon_max > 90 and lon_min < -90:
+            lon_tmp = lon_max
+            lon_max = lon_min
+            lon_min = lon_tmp
+
+        print("BOX", lon_min, lat_max, lon_max, lat_max)
+
         # load image data
         rgba = get_rgba(ds)
 
         # fade edges
-        fade_edges(rgba)
+        fade_edges(rgba, nsteps=20)
 
         # process notes
         for args in settings.chart_notes[filename]:
@@ -470,6 +275,19 @@ def process_chart(inq, outq, level, overwrite):
                         rgba[y, 0:x, 3] = 0
                         for m in range(0, margin):
                             rgba[y, x + m, 3] = rgba[y, x + m, 3] * m / margin
+                    lastxy = xy
+
+            elif args[0] == 'r-lon':
+                lastxy = (-1, -1)
+                lon = float(args[1])
+                for lat in numpy.arange(lat_max+1, lat_min-1, -0.1):
+                    xy = lonlat2xyr((lon,lat), reverse_transform, proj)
+                    xy = (xy[0] - edge, xy[1])
+                    for y in range(max(0, lastxy[1]), min(height-1, xy[1])):
+                        x = round(lastxy[0] + (xy[0] - lastxy[0]) * (y - lastxy[1]) / (xy[1] - lastxy[1]))
+                        rgba[y, x:, 3] = 0
+                        for m in range(0, margin):
+                            rgba[y, min(x - m, width-1), 3] = rgba[y, min(x - m, width-1), 3] * m / margin
                     lastxy = xy
 
             elif args[0] == 'b-lat':
@@ -509,6 +327,7 @@ def process_chart(inq, outq, level, overwrite):
                 lat = float(args[2])
                 check_lonlat(filename, (lon, lat))
                 xy = lonlat2xyr((lon, lat), reverse_transform, proj)
+                print(args, (lon, lat), xy)
                 xy = (max(0, xy[0] + edge), xy[1])
                 rgba[:,0:xy[0],3] = 0
                 for m in range(0, margin):
@@ -565,14 +384,26 @@ def process_chart(inq, outq, level, overwrite):
             else:
                 print("warning: ignoring", args)
 
+        if True:
+            print("writing", filename + ".png")
+            cv2.imwrite(filename + ".png", rgba, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+            print("done", filename + ".png")
+
+
         xy = level.lonlat2xy((lon_min, lat_max))
         tile_min = (round(xy[0]) // tile_size, round(xy[1]) // tile_size)
         xy = level.lonlat2xy((lon_max, lat_min))
         tile_max = (round(xy[0]) // tile_size, round(xy[1]) // tile_size)
 
+        if tile_max[0] < tile_min[0]:
+            tile_max = (tile_max[0] + level.tile_count, tile_max[1])
+        print("tile_range", tile_min, tile_max)
+
         # extract tiles
         count = 0
         for tx in range(tile_min[0]-1, tile_max[0]+1):
+            tx = tx % level.tile_count
+            print("tx", tx)
             tile_dir = os.path.join(level.dir, f"{tx}")
             if not os.path.exists(tile_dir):
                 os.mkdir(tile_dir)
@@ -594,13 +425,12 @@ def process_chart(inq, outq, level, overwrite):
                 with filelock.FileLock(tmpfile):
                     if os.path.exists(tile_path) and not overwrite:
                         combine_tiles(tile, cv2.imread(tile_path, cv2.IMREAD_UNCHANGED))
-                    write_img(tile_path, tile)
-
-                touched.append((tx, ty))
+                    if write_img(tile_path, tile):
+                        touched.append((tx, ty))
 
     outq.put(touched)
 
-def process_charts(levels, zoom, charts, overwrite=False, maxworkers=8):
+def process_charts(levels, zoom, charts, overwrite=False, maxworkers=16):
     if len(charts) > 0:
         nworkers = min(maxworkers, len(charts))
         inq = ctx.Queue(nworkers*2)
@@ -643,12 +473,15 @@ def scale_worker(inq, outq, src_zoom, dst_zoom, src_dir, dst_dir):
                     tmp[s*offy:s*offy+s, s*offx:s*offx+s] = cv2.imread(tile_path, cv2.IMREAD_UNCHANGED)
                     count += 1
         if count > 0:
-            tile = cv2.resize(tmp, (s, s), interpolation=cv2.INTER_AREA)
+            #tmp = cv2.GaussianBlur(tmp, (5,5), sigmaX=1.0)
+            #tile = cv2.resize(tmp, (s, s), interpolation=cv2.INTER_AREA)
+            #tile = cv2.resize(tmp, (s, s), interpolation=cv2.INTER_LANCSOZ64)
+            tile = numpy.asarray(PIL.Image.fromarray(tmp).resize((s,s), PIL.Image.LANCZOS))
             tile_dir = os.path.join(dst_dir, f"{xy[0]}")
             os.makedirs(tile_dir, exist_ok=True)
             tile_path = os.path.join(tile_dir, f"{xy[1]}.png")
-            write_img(tile_path, tile)
-            ntiles += 1
+            if write_img(tile_path, tile):
+                ntiles += 1
 
     outq.put(ntiles)
 
@@ -687,6 +520,7 @@ def scale_tiles(levels, src_zoom, dst_zoom, maxworkers=16):
 
 if __name__ == '__main__':
     ctx = multiprocessing.get_context('spawn')
+    tm = time.time()
 
     # basic consistency checks
     if True:
@@ -733,6 +567,8 @@ if __name__ == '__main__':
 
     # process tac charts
     if True:
+        toplevel = 9
+
         if False and areas is None:
             print(f"removing {os.path.join(settings.tiles_dir, 'tac')}")
             shutil.rmtree(os.path.join(settings.tiles_dir, 'tac'))
@@ -754,9 +590,15 @@ if __name__ == '__main__':
 
         if True:
             levels = make_levels('tac', max_zoom)
-            for zoom in range(len(levels)-1, -1, -1):
+            for zoom in range(len(levels)-1, toplevel-1, -1):
                 if areas is None:
                     levels[zoom].load()
                 print(levels[zoom])
                 process_charts(levels, zoom, [chart for chart in chart_list if chart[0] == zoom][:1], areas is not None)
                 scale_tiles(levels, zoom, zoom-1)
+
+    tm = math.floor(time.time() - tm)
+    hrs = tm // 3600
+    min = (tm / 60) % 60
+    sec = (tm % 60)
+    print(f"done in {hrs}:{min:02}:{sec:02}")

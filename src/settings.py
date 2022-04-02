@@ -1,5 +1,7 @@
 # (c)2018, Arthur van Hoff
 
+# REMIND: Halifax bump in CYQI
+
 import os, math
 import db
 
@@ -78,10 +80,13 @@ chart_notes = {
         ('l-lon', -109),
         ('b-lat', 32),
         ('t-fix', -109, 36.216),
+        ('r-fix', -101.98, 32),
     ],
     "Anchorage SEC": [
         ('l-lon', -151.5),
         ('b-lat', 60),
+        ('r-fix', -140.333, 60),
+        ('t-fix', -151.5, 64.166),
     ],
     "Atlanta SEC": [
         ('l-lon', -88),
@@ -155,6 +160,8 @@ chart_notes = {
     "Fairbanks SEC": [
         ('l-lon', -158),
         ('b-lat', 64),
+        ('t-fix', -158, 68.166),
+        ('r-fix', -144.916, 64),
     ],
     "Great Falls SEC": [
         ('l-lon', -117),
@@ -169,7 +176,18 @@ chart_notes = {
         ('b-lat', 44),
     ],
     "Hawaiian Islands SEC": [
-        # REMIND
+    ],
+    "Honolulu Inset SEC": [
+        #('l-lon', -158.5),
+        #('b-lat', 20.75),
+    ],
+    "Mariana Islands Inset SEC": [
+        #('l-lon', -144.333),
+        #('b-lat', 14.3333),
+    ],
+    "Samoan Islands Inset SEC": [
+        #('l-lon', -172.7),
+        #('b-lat', 14.333),
     ],
     "Houston SEC": [
         ('l-lon', -97),
@@ -184,12 +202,15 @@ chart_notes = {
     "Juneau SEC": [
         ('l-lon', -141),
         ('b-lat', 56),
+        ('r-fix', -130.383, 56),
+        ('t-fix', -141, 60.15),
         ('box', -142, 55, -137.25, 57.85),
         ('box', -142, 55, -138.833, 59.55),
     ],
     "Kansas City SEC": [
         ('l-lon', -97),
         ('b-lat', 36),
+        ('t-fix', -90, 40.225),
     ],
     "Ketchikan SEC": [
         ('l-lon', -139),
@@ -203,10 +224,12 @@ chart_notes = {
     "Kodiak SEC": [
         ('l-lon', -162),
         ('b-lat', 56),
+        ('box', -153.416, 56, -151, 57),
     ],
     "Lake Huron SEC": [
         ('l-lon', -85),
         ('b-lat', 44),
+        ('t-fix', -85, 48.216),
     ],
     "Las Vegas SEC": [
         ('l-lon', -118),
@@ -226,6 +249,8 @@ chart_notes = {
     "Memphis SEC": [
         ('l-lon', -95),
         ('b-lat', 32),
+        ('r-fix', -87.966, 32),
+        ('t-fix', -88, 36.216),
     ],
     "Miami SEC": [
         ('l-lon', -83),
@@ -235,6 +260,7 @@ chart_notes = {
     "Montreal SEC": [
         ('l-lon', -77),
         ('b-lat', 44),
+        ('t-fix', -69, 48.225),
     ],
     "New Orleans SEC": [
         ('l-lon', -91),
@@ -276,6 +302,7 @@ chart_notes = {
     "San Antonio SEC": [
         ('l-lon', -103),
         ('b-lat', 28),
+        ('r-lon', -96.5),
     ],
     "San Francisco SEC": [
         ('l-lon', -125),
@@ -300,14 +327,14 @@ chart_notes = {
         ('box', -73.083, 35.8, -71.5, 37.783),
     ],
     "Western Aleutian Islands West SEC": [
-        ('l-lon', 178),
-        ('b-lat', 51),
-        ('t-fix', 179.5, 53.135),
+        #('l-lon', 178),
+        #('t-fix', 179.5, 53.135),
+        #('b-lat', 51),
     ],
     "Western Aleutian Islands East SEC": [
-        ('l-fix', 169.365, 51),
-        ('t-fix', 169.5, 53.133),
-        ('b-lat', 51),
+        #('l-fix', 169.365, 51),
+        #('t-fix', 178, 53.116),
+        #('b-lat', 51),
     ],
     "Wichita SEC": [
         ('l-lon', -104),
@@ -321,7 +348,7 @@ chart_notes = {
         ('b-lat', 16),
     ],
     "Caribbean 2 VFR Chart": [
-        ('l-lon', -72),
+        ('l-fix', -73, 16),
         ('b-lat', 14),
     ],
 
