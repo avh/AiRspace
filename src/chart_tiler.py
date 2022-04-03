@@ -250,8 +250,6 @@ def process_chart(inq, outq, level, overwrite):
             lon_max = lon_min
             lon_min = lon_tmp
 
-        print("BOX", lon_min, lat_max, lon_max, lat_max)
-
         # load image data
         rgba = get_rgba(ds)
 
@@ -327,7 +325,6 @@ def process_chart(inq, outq, level, overwrite):
                 lat = float(args[2])
                 check_lonlat(filename, (lon, lat))
                 xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                print(args, (lon, lat), xy)
                 xy = (max(0, xy[0] + edge), xy[1])
                 rgba[:,0:xy[0],3] = 0
                 for m in range(0, margin):
@@ -384,7 +381,7 @@ def process_chart(inq, outq, level, overwrite):
             else:
                 print("warning: ignoring", args)
 
-        if True:
+        if False:
             print("writing", filename + ".png")
             cv2.imwrite(filename + ".png", rgba, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
             print("done", filename + ".png")
@@ -397,13 +394,11 @@ def process_chart(inq, outq, level, overwrite):
 
         if tile_max[0] < tile_min[0]:
             tile_max = (tile_max[0] + level.tile_count, tile_max[1])
-        print("tile_range", tile_min, tile_max)
 
         # extract tiles
         count = 0
         for tx in range(tile_min[0]-1, tile_max[0]+1):
             tx = tx % level.tile_count
-            print("tx", tx)
             tile_dir = os.path.join(level.dir, f"{tx}")
             if not os.path.exists(tile_dir):
                 os.mkdir(tile_dir)
@@ -430,7 +425,7 @@ def process_chart(inq, outq, level, overwrite):
 
     outq.put(touched)
 
-def process_charts(levels, zoom, charts, overwrite=False, maxworkers=16):
+def process_charts(levels, zoom, charts, overwrite=False, maxworkers=8):
     if len(charts) > 0:
         nworkers = min(maxworkers, len(charts))
         inq = ctx.Queue(nworkers*2)
@@ -599,6 +594,6 @@ if __name__ == '__main__':
 
     tm = math.floor(time.time() - tm)
     hrs = tm // 3600
-    min = (tm / 60) % 60
+    min = (tm // 60) % 60
     sec = (tm % 60)
     print(f"done in {hrs}:{min:02}:{sec:02}")
