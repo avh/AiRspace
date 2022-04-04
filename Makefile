@@ -20,6 +20,9 @@ chart_tiler: flake8
 airspace_tiler: flake8
 	python3 src/airspace_tiler.py
 
+airspace_combiner: flake8
+	python3 src/combiner.py
+
 flake8:
 	flake8 --config $(TOP)/flake8.config src/*.py
 

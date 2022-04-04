@@ -76,8 +76,11 @@
           }
       }
 
-      airports = ['KSFO', 'KSJC', 'KOAK', 'KSQL', 'KPAO', 'KNUQ', 'KRHV', 'KHWD'];
+      airports = ['CLASS_B', 'CLASS_C', 'CLASS_D'];
+      airports.push('KSFO', 'KSJC', 'KOAK', 'KSQL', 'KPAO', 'KNUQ', 'KRHV', 'KHWD');
       //airports.push('KAPC', 'KCCR', 'KLVK', 'KMRY', 'KSNS', 'KSMF', 'KSAC', 'KBAB', 'KMHR', 'KMOD', 'KSCK');
+      //airports.push('KLAS', 'KHND', 'KVGT');
+      airports.push('KLAX', 'KSLI', 'KLGB', 'KSNA', 'KCNO', 'KONT', 'KRAL', 'KBUR', 'KWHP', 'KVNY', 'KSMO', 'KCMP', 'KFUL', 'KHHR', 'KTOA', 'KRIV', 'KPMD', 'KEMT')
       airspaces = new Map()
       lastone = null;
 
@@ -85,7 +88,7 @@
       {
           if (!airspaces.has(airport)) {
               airspaces.set(airport, new Cesium.Cesium3DTileset({
-                  url: 'airspaces/' + airport + ".json"
+                  url: 'tiles/airports/' + airport + ".json"
               }));
           }
           airspace = airspaces.get(airport);
@@ -93,9 +96,11 @@
           if (checked) {
               if (!viewer.scene.primitives.contains(airspace)) {
                   viewer.scene.primitives.add(airspace).readyPromise.then(function(tileset) {
-                      viewer.flyTo(airspace, {
-                          offset: new Cesium.HeadingPitchRange(0*d2r, -50*d2r, airspace.extras.height)
-                      });
+                      if (airspace.extras.flyto) {
+                          viewer.flyTo(airspace, {
+                              offset: new Cesium.HeadingPitchRange(0*d2r, -50*d2r, airspace.extras.height)
+                          });
+                      }
                   });
               }
           } else {

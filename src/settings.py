@@ -39,6 +39,7 @@ cloudahoy_dir = os.path.join(data_dir, "cloudahoy")
 tiles_dir = os.path.join(www_dir, "tiles")
 sec_tiles_dir = os.path.join(tiles_dir, "sec")
 tac_tiles_dir = os.path.join(tiles_dir, "tac")
+airports_dir = os.path.join(tiles_dir, "airports")
 
 faa_chart_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/"
 faa_nasr_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/"
@@ -261,6 +262,7 @@ chart_notes = {
         ('l-lon', -77),
         ('b-lat', 44),
         ('t-fix', -69, 48.225),
+        ('r-fix', -68.516, 44),
     ],
     "New Orleans SEC": [
         ('l-lon', -91),
