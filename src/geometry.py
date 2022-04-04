@@ -105,6 +105,8 @@ class Point:
         return f"P({self.index},{self.lon:.8f},{self.lat:.8f},{self.regions}{'' if self.group is None else ',grouped'})"
 
 class QuadTree:
+    maxleafs = 8
+
     def __init__(self):
         self.center = None
         self.children = []
@@ -121,11 +123,28 @@ class QuadTree:
                     self.children[2].insert(pt)
                 else:
                     self.children[3].insert(pt)
-        elif len(self.children) == 4:
+        elif len(self.children) == QuadTree.maxleafs:
             self.divide()
             self.insert(pt)
         else:
             self.children.append(pt)
+
+    def remove(self, pt):
+        if self.center is not None:
+            if pt.lon < self.center.lon:
+                if pt.lat < self.center.lat:
+                    self.children[0].remove(pt)
+                else:
+                    self.children[1].remove(pt)
+            else:
+                if pt.lat < self.center.lat:
+                    self.children[2].remove(pt)
+                else:
+                    self.children[3].remove(pt)
+        elif pt in self.children:
+            del self.children[self.children.index(pt)]
+        else:
+            assert False, f"point not found: {pt}"
 
     def insert_grouped(self, point, dist=25):
         assert not point.is_grouped()
@@ -141,7 +160,6 @@ class QuadTree:
                     bestdist = dp
 
         if point is bestpt:
-            print("FOUND TWICE", point)
             return point
         if bestdist <= dist:
             # group these points
@@ -150,7 +168,9 @@ class QuadTree:
             else:
                 bestpt.group.append(point)
             bestpt.regions.update(point.regions)
+            self.remove(bestpt)
             bestpt.recenter()
+            self.insert(bestpt)
             return bestpt
 
         self.insert(point)
