@@ -95,6 +95,9 @@ class Point:
                 return (self.lon, self.lat)
         return None
 
+    def __hash__(self):
+        return (self.lon, self.lat).__hash__()
+
     def __eq__(self, other):
         return self.lon == other.lon and self.lat == other.lat
 

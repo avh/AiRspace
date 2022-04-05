@@ -5,7 +5,6 @@ body {
     height: 100%;
     margin: 0;
     padding: 0;
-    background-color: #CCC;
 }
 #cesiumContainer {
     width: 100%;
@@ -22,7 +21,9 @@ body {
     left: 10px !important;
 }
 #toolbar {
+    padding: 5px;
     position: absolute;
+    background-color: rgba(255, 255, 255, 0.5)
 }
 #checkboxes {
     background-color: rgba(255, 255, 255, 0.5)
