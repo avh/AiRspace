@@ -50,6 +50,28 @@ earth_circumference = 40075017
 earth_radius = earth_circumference/(2*math.pi)
 
 #
+# default 3D settings
+#
+
+defaultGeometricError = {
+    'A': 20000,
+    'B': 18000,
+    'C': 16000,
+    'D': 14000,
+    'E': 12000,
+    'G': 10000,
+}
+
+defaultHeight = {
+    'A': 50000,
+    'B': 40000,
+    'C': 40000,
+    'D': 40000,
+    'E': 40000,
+    'G': 40000,
+}
+
+#
 # Database
 #
 

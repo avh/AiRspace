@@ -4,12 +4,14 @@ import os, pyproj, json
 import util
 
 class Tiler:
-    TerrainExaggeration = 5
-
-    def __init__(self):
+    def __init__(self, dst, terrain_exaggeration=1):
+        self.dst = dst
+        self.terrain_exaggeration = terrain_exaggeration
         self.ecef_proj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
         self.lla_proj = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
         self.region = None
+        if not os.path.exists(dst):
+            os.mkdir(dst)
 
     # convert lon,lat,alt to x,y,z
     def lla2xyz(self, lla):
@@ -25,12 +27,12 @@ class Tiler:
 
         if lla[2] < -1000:
             raise Exception("bad altitude: " + lla)
-        return pyproj.transform(self.lla_proj, self.ecef_proj, lla[0], lla[1], lla[2]*Tiler.TerrainExaggeration, radians=False)
+        return pyproj.transform(self.lla_proj, self.ecef_proj, lla[0], lla[1], lla[2]*self.terrain_exaggeration, radians=False)
 
     # convert x,y,z to lon,lat,alt
     def xyz2lla(self, xyz):
         lla = pyproj.transform(self.ecef_proj, self.lla_proj, *xyz, radians=False)
-        return (lla[0], lla[1], lla[2]/Tiler.TerrainExaggeration)
+        return (lla[0], lla[1], lla[2]/self.terrain_exaggeration)
 
     # expand a region given a lla
     def expand_region(self, reg, lla):
@@ -58,14 +60,14 @@ class Tiler:
 
     # convert a region in degrees to radians
     def region_rad(self, reg):
-        return [reg[0]*util.d2r, reg[1]*util.d2r, reg[2]*util.d2r, reg[3]*util.d2r, reg[4], reg[5]]
+        return [reg[0]*util.d2r, reg[1]*util.d2r, reg[2]*util.d2r, reg[3]*util.d2r, reg[4]*self.terrain_exaggeration, reg[5]*self.terrain_exaggeration]
 
-    # generate a tile for a single gltf object
-    def save_tile(self, dir, name, gltf, geometricError=5000, extras=None):
+    # generate a tile for a gltf object
+    def save_tile(self, name, gltf, geometricError=5000, extras=None):
         if self.region is None:
             return
 
-        path = os.path.join(dir, name)
+        path = os.path.join(self.dst, name)
         gltf.save(path + ".b3dm")
         #gltf.save(path + ".gltf")
         #gltf.save(path + ".glb")

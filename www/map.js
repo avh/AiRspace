@@ -4,8 +4,6 @@ d2r = 3.1415972 / 180
 Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(-120, 20, -80, 50);
 Cesium.Camera.DEFAULT_VIEW_FACTOR = 0;
 Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMDU1NzUwNi0yNjdjLTRjYTktOTJhZS02ZTMxMWI5YmNhMGEiLCJpZCI6ODg0MSwiaWF0IjoxNjI1MDIwMTk3fQ.PKYn_UKdoBoXROZTihLa_WmmpmRLEWg38uEXxFniHeI';
-var activeLayers = new Set();
-var activeAirports = new Set();
 
 
 let params = new URLSearchParams(window.location.search);
@@ -49,24 +47,26 @@ viewer.scene.imageryLayers.get(0).show = false;
 viewer.scene.imageryLayers.get(1).show = false;
 viewer.scene.imageryLayers.get(2).show = false;
 viewer.scene.globe.depthTestAgainstTerrain = true;
-viewer.scene.globe.terrainExaggeration = 5.0;
+viewer.scene.globe.terrainExaggeration = 1.0;
 
 airports = new Map()
+airports_dir = 'tiles/airports-1x'
 
-function showAirport(airport, on)
+function showAirport(airport, on, flyto=true)
 {
+    //console.log("showAirport", airports_dir, airport, on, flyto);
     if (!airports.has(airport)) {
         airports.set(airport, new Cesium.Cesium3DTileset({
-            url: 'tiles/airports/' + airport + ".json"
+            url: airports_dir + '/' + airport + ".json"
         }));
     }
     airspace = airports.get(airport);
     if (on) {
         if (!viewer.scene.primitives.contains(airspace)) {
-            viewer.scene.primitives.add(airspace).readyPromise.then(function(tileset) {
-                if (airspace.extras.flyto) {
+            viewer.scene.primitives.add(airspace).readyPromise.then(function() {
+                if (flyto && airspace.extras.flyto) {
                     viewer.flyTo(airspace, {
-                        offset: new Cesium.HeadingPitchRange(0*d2r, -50*d2r, airspace.extras.height)
+                        offset: new Cesium.HeadingPitchRange(0*d2r, -30*d2r, airspace.extras.height)
                     });
                 }
             });
@@ -81,6 +81,18 @@ function showLayer(name, on)
 {
     if (name == 'EARTH') {
         viewer.scene.imageryLayers.get(0).show = on;
+    } else if (name == "5X") {
+        viewer.scene.globe.terrainExaggeration = on ? 5.0 : 1.0;
+        airports_dir = 'tiles/airports-' + (on ? "5x" : "1x");
+        names = Array.from(airports.keys());
+        console.log("NAMES", names);
+        for (let airport of names) {
+            showAirport(airport, false);
+        }
+        console.log("NAMES", names);
+        for (let airport of names) {
+            showAirport(airport, true, false);
+        }
     } else if (name == 'SEC') {
         viewer.scene.imageryLayers.get(1).show = on;
     } else if (name == 'TAC') {
@@ -94,12 +106,8 @@ function showLayer(name, on)
         } else {
             viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider({});
         }
-    } else if (name == 'CLASS_B') {
-        showAirport('CLASS_B', on);
-    } else if (name == 'CLASS_C') {
-        showAirport('CLASS_C', on);
-    } else if (name == 'CLASS_D') {
-        showAirport('CLASS_D', on);
+    } else if (name.startsWith("CLASS_")) {
+        showAirport(name, on);
     }
 }
 
@@ -111,29 +119,56 @@ function saveState()
             state.push($(this).attr('id'));
         }
     });
-    state = state.join(',');
-    $.cookie('map.layers', state)
+    $.cookie('map.layers', state.sort().join(','))
+    state = []
+    for (let airport of airports.keys()) {
+        if (airport.startsWith("K")) {
+            state.push(airport);
+        }
+    }
+    $.cookie('map.airports', state.sort().join(','))
 }
 
 $(document).ready(function() {
-    layers = $.cookie('map.layers');
-    if (layers == undefined) {
-        layers = "EARTH,SEC,TAC,CLASS_B,CLASS_C,CLASS_D";
+    let l = $.cookie('map.layers');
+    if (l == undefined) {
+        l = "EARTH,5X,SEC,TAC,CLASS_B,CLASS_C,CLASS_D";
     }
-    for (layer of layers.split(',')) {
-        showLayer(layer, true)
-        $('#' + layer).prop('checked', true)
+    console.log("layers", l);
+    for (layer of l.split(',')) {
+        if (layer.length > 0) {
+            showLayer(layer, true)
+            $('#' + layer).prop('checked', true)
+        }
+    }
+    let a = $.cookie('map.airports');
+    if (a != undefined && a.length > 0) {
+        console.log("airports", a);
+        for (airport of a.split(',')) {
+            showAirport(airport, true, false);
+        }
+        $('#airports').val(a);
     }
     $('.layer').change(function () {
         showLayer($(this).attr('id'), this.checked);
         saveState();
     });
     $('#airports').keyup(function (e) {
-        if (e.keyCode == 13) {
-            for (airport of this.value.split(',')) {
-                airport = airport.toUpperCase();
-                showAirport(airport, !airports.has(airport));
+        if (e.keyCode == 13 && this.value.trim().length > 0) {
+            for (let airport of airports.keys()) {
+                if (airport.startsWith("K")) {
+                    showAirport(airport, false);
+                }
             }
+            var flyto = true;
+            for (airport of this.value.split(',')) {
+                a = airport.trim().toUpperCase();
+                if (a.startsWith("K")) {
+                    showAirport(a, true, flyto);
+                    flyto = false;
+                }
+            }
+            saveState();
         }
     });
 

@@ -2,23 +2,6 @@
 import json, glob,os
 import settings, util
 
-defaultGeometricError = {
-    'A': 20000,
-    'B': 18000,
-    'C': 16000,
-    'D': 14000,
-    'E': 12000,
-    'G': 10000,
-}
-defaultHeight = {
-    'A': 50000,
-    'B': 40000,
-    'C': 40000,
-    'D': 40000,
-    'E': 40000,
-    'G': 40000,
-}
-
 def bounds_init():
     return (util.MAXINT, util.MAXINT, util.MININT, util.MININT, util.MAXINT, util.MININT)
 
@@ -32,7 +15,7 @@ def bounds_union(b1, b2):
 def save_airports(dir, clazz, airports):
     print(f"{dir}/CLASS_{clazz}, {len(airports)}")
 
-    geometricError = defaultGeometricError[clazz]
+    geometricError = settings.defaultGeometricError[clazz]
     bounds = bounds_init()
     for a in airports:
         bounds = bounds_union(bounds, a['root']['boundingVolume']['region'])
@@ -44,7 +27,7 @@ def save_airports(dir, clazz, airports):
         },
         "extras": {
             "class": clazz,
-            "height": defaultHeight[clazz],
+            "height": settings.defaultHeight[clazz],
             "id": f"CLASS_{clazz}",
             "flyto": False,
         },
@@ -86,4 +69,5 @@ def combine_airports(dir):
 
 
 if __name__ == '__main__':
-    combine_airports(settings.airports_dir)
+    combine_airports(settings.airports_dir + "-1x")
+    combine_airports(settings.airports_dir + "-5x")

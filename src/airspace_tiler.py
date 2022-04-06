@@ -25,9 +25,11 @@ airspace_class_E = False
 airports = None
 badairports = None
 
-checkairports = {'KPAO', 'KLAX', 'KSNA', 'KFLD', 'KMCI', 'KOFF', 'KJFK', 'KTPA', 'KSAN'}
-badairports = {'KLUF', 'KBFL', 'KSNA', 'KJKA', 'KPHL', 'KADQ', 'KFMH', 'KDTW', 'KCLT', 'KCIC', 'KSTL', 'KACT', 'KDCA', 'KORH', 'KJNU', 'KBET', 'KGRF', 'KSCH', 'KDFW', 'KMSY', 'KFRI', 'KSUX', 'KHST', 'KSWF', 'KMDT', 'KSLC', 'KNHK', 'KSEA'}
-#airports = {'KPAO'}
+checkairports = {'KPAO', 'KLAX', 'KSNA', 'KFLD', 'KMCI', 'KOFF', 'KJFK', 'KTPA', 'KSAN', 'KBIG', 'KSEA', 'KENA', 'KTRK', 'KSMF', 'KTUS', 'KDMA', 'KPHX'}
+badairports = {'KSTL', 'KSNA', 'KCIC', 'KORH', 'KGRF', 'KJNU', 'KMSY', 'KDTW', 'KBFL', 'KSWF', 'KSCH', 'KDFW', 'KHST', 'KSEA', 'KSUX', 'KADQ', 'KMDT', 'KSLC', 'KPHL', 'KBET', 'KNHK', 'KFMH', 'KJKA', 'KLUF', 'KCLT', 'KDCA', 'KFRI', 'KACT'}
+#airports = {'KNHK'}
+if airports is not None:
+    badairports = badairports.difference(airports)
 
 black = (0, 0, 0, 1)
 red = (1, 0, 0, 1)
@@ -98,7 +100,7 @@ class Airspace(Counted):
             if True:
                 for region in self.regions:
                     region.cleanup_edges(qtree)
-            if airspace_self_intersect:
+            if True and airspace_self_intersect:
                 self.cleanup_self_intersection(qtree)
 
             if False:
@@ -107,7 +109,6 @@ class Airspace(Counted):
                     print(i, pt)
 
     def add_region(self, region):
-        region.check()
         self.regions.append(region)
         self.bbox = util.bbox_union(self.bbox, region.bbox)
 
@@ -306,9 +307,38 @@ class Region(Counted):
     #
     # Delete any duplicate points.
     # Delete any points that are too close together.
+    #
+    def cleanup_points(self, mindist=75):
+        n = 0
+        while True:
+            pairs = sorted([(p0.distance(p1), p0, p1) for p0, p1 in util.enumerate_pairs(self.points)], key=lambda x: x[0])
+            eliminated = set()
+            for d, p0, p1 in pairs:
+                if d >= mindist:
+                    break
+                if p0.angle < p1.angle:
+                    tmp = p1
+                    p1 = p0
+                    p0 = tmp
+                if p1 not in eliminated:
+                    eliminated.add(p1)
+                    if p0.is_grouped():
+                        p0.group.append(p1)
+                    else:
+                        p0.group = [p0, p1]
+            if len(eliminated) == 0:
+                break
+            n += len(eliminated)
+            self.points = [pt for pt in self.points if pt not in eliminated]
+        if n > 0:
+            print(f"removed {n} unnecessary points from {self}")
+
+    #
+    # Delete any duplicate points.
+    # Delete any points that are too close together.
     # Avoid deleting corners
     #
-    def cleanup_points(self, mindist=100, maxcenterdist=20, maxangle=15):
+    def cleanup_points_old(self, mindist=100, maxcenterdist=20, maxangle=15):
         print("cleanup", self)
         rc = 0
         i = 0
@@ -388,7 +418,7 @@ class Region(Counted):
     #
     # find any points near edges and merge them into the polygon
     #
-    def cleanup_edges(self, qtree, maxdist=75):
+    def cleanup_edges(self, qtree, maxdist=200):
         #print("cleanup_edges", self)
         count = 0
         i = 0
@@ -640,6 +670,7 @@ def load_airspaces(airports):
         type_codes.add(type_code)
         lower = util.f2m * abs(float(f.record[lower_desc_index]))
         upper = util.f2m * abs(float(f.record[upper_desc_index]))
+        #print("TYPE_CODE", type_code, float(f.record[lower_desc_index]), float(f.record[upper_desc_index]))
         if type_code.startswith('CLASS_E'):
             if not airspace_class_E:
                 continue
@@ -664,28 +695,13 @@ def load_airspaces(airports):
 
     return airspaces
 
-geometricErrors = {
-    'A': 10000,
-    'B': 5000,
-    'C': 4000,
-    'D': 3000,
-    'E': 2000,
-    'G': 10000,
-}
-airspaceHeights = {
-    'A': 100000,
-    'B': 100000,
-    'C': 80000,
-    'D': 30000,
-    'E': 20000,
-    'G': 100000,
-}
-
 def generate_overlapping_airspaces(airspaces):
     # first basic cleanup
     for airspace in airspaces:
         #airspace.simplify()
+        #airspace.dump()
         airspace.cleanup()
+        #airspace.dump()
 
     print("generate_overlapping_airspaces", airspaces)
 
@@ -732,17 +748,9 @@ def generate_overlapping_airspaces(airspaces):
         for airspace in airspaces:
             airspace.check()
 
-    # REMIND: cleanup self intersection
-    # REMIND: exclude higher class airspaces
-    # REMIND: KPAO, KNUQ
-
-    # create directory
-    dst_dir = settings.airports_dir
-    if not os.path.exists(dst_dir):
-        os.mkdir(dst_dir)
-
     # output as a 3D object
-    t = tiler.Tiler()
+    t1 = tiler.Tiler(settings.airports_dir + "-1x", 1)
+    t5 = tiler.Tiler(settings.airports_dir + "-5x", 5)
     for airspace in airspaces:
         if False:
             print("airspace", airspace)
@@ -752,18 +760,21 @@ def generate_overlapping_airspaces(airspaces):
                     print("point", p)
                 r.check()
 
-        g = gltf.GLTF()
-        airspace.draw(t, g)
+        g1 = gltf.GLTF()
+        airspace.draw(t1, g1)
+        g5 = gltf.GLTF()
+        airspace.draw(t5, g5)
         extras = {
             'id': airspace.id,
             'class': airspace.type_class,
-            'height': airspaceHeights[airspace.type_class],
+            'height': settings.defaultHeight[airspace.type_class],
             "flyto": True,
         }
-        geometricError = geometricErrors[airspace.type_class]
+        geometricError = settings.defaultGeometricError[airspace.type_class]
 
-        t.save_tile(dst_dir, airspace.id, g, geometricError, extras)
-        print("saved", dst_dir, airspace.id)
+        t1.save_tile(airspace.id, g1, geometricError, extras)
+        t5.save_tile(airspace.id, g5, geometricError, extras)
+        print("saved", airspace.id)
 
 def load_airspace_boundaries():
     shp = shapefile.Reader(settings.nasr_shape_path)
@@ -823,33 +834,35 @@ if __name__ == "__main__":
         print(f"found {len(clusters)} clusters")
         #for i, cluster in enumerate(clusters):
         #    print(i, cluster)
-        for i, cluster in enumerate(clusters):
-            ids = set([id for id, _, _ in cluster])
-            if airports is not None:
-                ids = ids.intersection(airports)
-            if badairports is not None:
-                ids = ids.difference(badairports)
-            print(f"cluster {i}, {ids}")
-            if len(ids) > 0:
-                try:
-                    airspaces = load_airspaces(ids)
-                    generate_overlapping_airspaces(list(airspaces.values()))
-                except:
-                    traceback.print_tb(sys.exc_info()[2])
-
-                    print("FAILED", ids)
-                    badairports.update(ids)
+        for depth in range(1,6):
+            for i, cluster in enumerate(clusters):
+                ids = set([id for id, _, _ in cluster])
+                if airports is not None:
+                    ids = ids.intersection(airports)
+                if badairports is not None:
+                    ids = ids.difference(badairports)
+                if len(ids) > 0 and (depth == 5 or len(ids) == depth):
+                    print(f"cluster {i}, {ids}")
+                    try:
+                        airspaces = load_airspaces(ids)
+                        generate_overlapping_airspaces(list(airspaces.values()))
+                    except:
+                        traceback.print_exc()
+                        print("FAILED", ids)
+                        badairports.update(ids)
         if True:
-            combiner.combine_airports(settings.airports_dir)
+            combiner.combine_airports(settings.airports_dir + "-1x")
+            combiner.combine_airports(settings.airports_dir + "-5x")
     else:
         for airport in airports:
             print("airport", airport)
             try:
                 airspaces = load_airspaces({airport})
-                assert len(airspaces) == 1
-                generate_overlapping_airspaces(list(airspaces.values()))
+                assert len(airspaces) > 0
+                for airspace in airspaces.values():
+                    generate_overlapping_airspaces([airspace])
             except:
-                traceback.print_tb(sys.exc_info()[2])
+                traceback.print_exc()
 
                 print("FAILED", airport)
                 badairports.add(airport)
