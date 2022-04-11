@@ -14,6 +14,13 @@ chart_download: flake8
 chart_shapes_download: flake8
 	python3 src/chart_shapes_download.py
 
+boundary_shapes_download: flake8
+	python3 src/boundary_shapes_download.py
+
+airport_data_download: flake8
+	python3 src/airport_data_download.py
+
+
 chart_tiler: flake8
 	python3 src/chart_tiler.py
 
@@ -43,6 +50,7 @@ install_packages:
 	pip3 install python-dateutil
 	pip3 install gdal
 	pip3 install opencv-python
+	pip3 install scipy
 
 .FORCE:
 

@@ -54,7 +54,7 @@ airports_dir = 'tiles/airports-1x'
 
 function showAirport(airport, on, flyto=true)
 {
-    //console.log("showAirport", airports_dir, airport, on, flyto);
+    console.log("showAirport", airports_dir, airport, on, flyto);
     if (!airports.has(airport)) {
         airports.set(airport, new Cesium.Cesium3DTileset({
             url: airports_dir + '/' + airport + ".json"
@@ -122,7 +122,7 @@ function saveState()
     $.cookie('map.layers', state.sort().join(','))
     state = []
     for (let airport of airports.keys()) {
-        if (airport.startsWith("K")) {
+        if (!airport.startsWith("CLASS_")) {
             state.push(airport);
         }
     }
@@ -155,18 +155,17 @@ $(document).ready(function() {
     });
     $('#airports').keyup(function (e) {
         if (e.keyCode == 13 && this.value.trim().length > 0) {
+            console.log("SHOW", this.value.trim())
             for (let airport of airports.keys()) {
-                if (airport.startsWith("K")) {
+                if (!airport.startsWith("CLASS_")) {
                     showAirport(airport, false);
                 }
             }
             var flyto = true;
             for (airport of this.value.split(',')) {
                 a = airport.trim().toUpperCase();
-                if (a.startsWith("K")) {
-                    showAirport(a, true, flyto);
-                    flyto = false;
-                }
+                showAirport(a, true, flyto);
+                flyto = false;
             }
             saveState();
         }

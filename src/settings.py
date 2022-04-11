@@ -1,7 +1,5 @@
 # (c)2018, Arthur van Hoff
 
-# REMIND: Halifax bump in CYQI
-
 import os, math
 import db
 
@@ -45,6 +43,8 @@ faa_chart_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/digital_pro
 faa_nasr_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/"
 elevation_cvs = os.path.join(charts_source_dir, "ned3694_20181220_205600.csv")
 nasr_shape_path = os.path.join(nasr_dir, "Additional_Data/Shape_Files/Class_Airspace")
+all_airport_data_url = "https://adip.faa.gov/publishedAirports/all-airport-data.xlsx"
+boundaries_url = "https://opendata.arcgis.com/api/v3/datasets/67885972e4e940b2aa6d74024901c561_0/downloads/data?format=shp&spatialRefId=4326"
 
 earth_circumference = 40075017
 earth_radius = earth_circumference/(2*math.pi)
@@ -59,6 +59,11 @@ defaultGeometricError = {
     'C': 16000,
     'D': 14000,
     'E': 12000,
+    'E1': 12000,
+    'E2': 12000,
+    'E3': 12000,
+    'E4': 12000,
+    'E5': 12000,
     'G': 10000,
 }
 
@@ -68,6 +73,11 @@ defaultHeight = {
     'C': 40000,
     'D': 40000,
     'E': 40000,
+    'E1': 40000,
+    'E2': 40000,
+    'E3': 40000,
+    'E4': 40000,
+    'E5': 40000,
     'G': 40000,
 }
 
@@ -197,6 +207,7 @@ chart_notes = {
     "Halifax SEC": [
         ('l-lon', -69),
         ('b-lat', 44),
+        # REMIND: Halifax bump in CYQI
     ],
     "Hawaiian Islands SEC": [
     ],
@@ -485,6 +496,6 @@ chart_notes = {
 
     "Grand Canyon General Aviation": [
         ('bounds', -114.108, 35.633, -111.308, 36.641)
-        # REMIND: cut out inset
+        ('box', -11.65, 36.341, -111, 37),
     ],
 }

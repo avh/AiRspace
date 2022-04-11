@@ -12,8 +12,13 @@ def bounds_union(b1, b2):
         min(b1[4], b2[4]), max(b1[5], b2[5]),
     )
 
-def save_airports(dir, clazz, airports):
-    print(f"{dir}/CLASS_{clazz}, {len(airports)}")
+def save_area(dir, id, flyto, airports):
+    print(f"{dir}/{id}, {len(airports)}")
+
+    clazz = 'E5'
+    for airport in airports:
+        if airport['extras']['class'] < clazz:
+            clazz = airport['extras']['class']
 
     geometricError = settings.defaultGeometricError[clazz]
     bounds = bounds_init()
@@ -28,8 +33,8 @@ def save_airports(dir, clazz, airports):
         "extras": {
             "class": clazz,
             "height": settings.defaultHeight[clazz],
-            "id": f"CLASS_{clazz}",
-            "flyto": False,
+            "id": id,
+            "flyto": flyto,
         },
         "geometricError": geometricError,
         "root": {
@@ -48,7 +53,7 @@ def save_airports(dir, clazz, airports):
             "transform": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
         },
     }
-    with open(os.path.join(dir, f"CLASS_{clazz}.json"), 'wb') as out:
+    with open(os.path.join(dir, f"{id}.json"), 'wb') as out:
         out.write(json.dumps(tile, sort_keys=True, indent=4).encode('utf-8'))
 
 
@@ -58,14 +63,29 @@ def combine_airports(dir):
         'C': {},
         'D': {},
         'E': {},
+        'E1': {},
+        'E2': {},
+        'E3': {},
+        'E4': {},
+        'E5': {},
     }
-    for airport_file in glob.glob(os.path.join(dir, "K*.json")):
+    areas = {}
+    for airport_file in glob.glob(os.path.join(dir, "*-*.json")):
         with open(airport_file) as f:
             data = json.load(f)
+        if 'content' not in data['root']:
+            continue
         airport_classes[data['extras']['class']][data['extras']['id']] = data
+        id = data['extras']['id']
+        id = id[:id.rindex('-')]
+        if id not in areas:
+            areas[id] = []
+        areas[id].append(data)
 
     for clazz, airports in airport_classes.items():
-        save_airports(dir, clazz, airports.values())
+        save_area(dir, f"CLASS_{clazz}", False, airports.values())
+    for id, airports in areas.items():
+        save_area(dir, id, True, airports)
 
 
 if __name__ == '__main__':

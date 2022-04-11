@@ -9,36 +9,14 @@ def shape_name(value):
     value = re.sub(r'[-\s]+', '-', value).strip('-_')
     return value.replace(' ', '-').replace('-CLASS-','-')
 
-def download_chart_shapes():
-    #
-    # Scan the NASR page for the current download
-    #
-
-    url = settings.faa_nasr_url
-    print("requesting", url)
-    req = requests.get(url=url)
-    html = lxml.etree.HTML(req.text)
-
-    for t in html.xpath(".//h2[text()='Current']/following-sibling::ul"):
-        href = t.find(".//a").attrib["href"]
-        break
-
-    url = urllib.parse.urljoin(url, href)
-    print("requesting", url)
-    req = requests.get(url=url)
-    html = lxml.etree.HTML(req.text)
-
-    for t in html.xpath(".//li/a[text()='Download']"):
-        href = t.attrib["href"]
-        break
-
-    url = urllib.parse.urljoin(url, href)
+def download_boundary_shapes():
+    url = settings.boundaries_url
 
     #
     # download the file
     #
 
-    name = os.path.basename(urllib.parse.urlparse(url).path)
+    name = "Airspace_Boundary.zip"
     zip_path = os.path.join(settings.charts_source_dir, name)
     util.download_file(url, zip_path)
 
@@ -47,31 +25,25 @@ def download_chart_shapes():
     #
 
     zip_dir = os.path.splitext(zip_path)[0]
+    os.makedirs(zip_dir, exist_ok=True)
 
     print("extracting", zip_path, "to", zip_dir)
     with zipfile.ZipFile(zip_path) as zip:
         zip.extractall(zip_dir)
 
-    #
-    # create link
-    #
-    if os.path.lexists(settings.nasr_dir):
-        os.remove(settings.nasr_dir)
-    os.symlink(os.path.relpath(zip_dir, os.path.dirname(settings.nasr_dir)), settings.nasr_dir)
-    print("created", settings.nasr_dir)
-
-def process_chart_shapes():
+def process_boundary_shapes():
     # see https://aeronav.faa.gov/Open_Data_Supp/Data_Dictionary.pdf
-    shp = shapefile.Reader(settings.nasr_shape_path)
+    path = os.path.join(settings.charts_source_dir, "Airspace_Boundary/Airspace_Boundary.shp")
+    shp = shapefile.Reader(path)
     names = [field[0] for field in shp.fields]
-
-    id_index = names.index('DeletionFlag')
+    #id_index = names.index('OBJECTID')
     #name_index = names.index('NAME')
     ident_index = names.index('IDENT')
+    icao_id_index = names.index('ICAO_ID')
     #class_index = names.index('CLASS')
     #mil_code_index = names.index('MIL_CODE')
     comm_name_index = names.index('COMM_NAME')
-    level_index = names.index('LEVEL')
+    level_index = names.index('LEVEL_')
     sector_index = names.index('SECTOR')
     onshore_index = names.index('ONSHORE')
     exclusion_index = names.index('EXCLUSION')
@@ -90,55 +62,33 @@ def process_chart_shapes():
     delete_index = names.index('DeletionFlag')
 
     # organize all shapes into airspaces
-    area_shapes = {}
-    airport_shapes = {}
+    shapes = {}
     for i, f in enumerate(shp.shapeRecords()):
-        id = f.record[id_index]
+        #id = str(f.record[id_index])
         ident = f.record[ident_index]
         type_code = f.record[type_code_index]
-        if len(id) == 0:
-            id = f"A-{shape_name(ident)}"
-            shapes = area_shapes
-        elif len(id) == 3:
-            id = f"K{id}-{type_code[6:]}"
-            shapes = airport_shapes
-        elif len(id) == 4:
-            id = f"{id}-{type_code[6:]}"
-            shapes = airport_shapes
-        else:
-            assert False, f"bad id: {id}"
-
-        if f.shape.points[0] != f.shape.points[-1]:
-            print(f"{id}: shape not closed")
-            continue
 
         # create airspace (if needed)
-        if id not in shapes:
-            shapes[id] = {
-                'id': id,
+        if ident not in shapes:
+            shapes[ident] = {
                 'ident': ident,
                 #'name': f.record[name_index],
-                'comm_name': f.record[comm_name_index],
+                'icao_id': f.record[icao_id_index],
                 'type_code': type_code,
                 'class': type_code[6:],
-                'sector': f.record[sector_index],
                 'local_type': f.record[local_type_index],
                 'bbox': util.bbox_init(),
                 'delete': f.record[delete_index],
-                'exclusion': f.record[exclusion_index],
                 'hours': (f.record[wkhr_code_index], f.record[wkhr_rmk_index]),
                 'regions': []
             }
-        shape = shapes[id]
-        assert shape['id'] == id
+        shape = shapes[ident]
+        #assert shape['id'] == id, f"{id}, {shape}"
         assert shape_name(shape['ident']) == shape_name(ident), f"{shape['ident']} != {ident}"
         assert shape['class'] == type_code[6:], "{shape['class']} != {type_code[6:]}, {shape}"
         assert shape['type_code'] == type_code, f"{shape['type_code']} != {type_code}, {shape}"
         assert shape['local_type'] == f.record[local_type_index], f"{shape['local_type']} != {f.record[local_type_index]}"
-        assert shape['delete'] == f.record[delete_index]
-        assert shape['comm_name'] == f.record[comm_name_index]
-        assert shape['sector'] == f.record[sector_index]
-        assert shape['exclusion'] == f.record[exclusion_index]
+        #assert shape['delete'] == f.record[delete_index], f"{f.record[delete_index]}, {shape}"
         assert shape['hours'] == (f.record[wkhr_code_index], f.record[wkhr_rmk_index])
 
         # get relevant parameters region parameters
@@ -170,26 +120,28 @@ def process_chart_shapes():
             ),
             'level': f.record[level_index],
             'onshore': f.record[onshore_index] != '0',
+            'sector': f.record[sector_index],
+            'comm_name': f.record[comm_name_index],
+            'exclusion': f.record[exclusion_index],
         }
         shape['regions'].append(region)
         shape['bbox'] = util.bbox_union(shape['bbox'], bbox)
 
-    airport_shapes_table = settings.db.hash_table("airport_shapes")
-    airport_shapes_table.clear()
-    for i, shape in enumerate(airport_shapes.values()):
-        airport_shapes_table.set(shape['id'], shape)
-    print(f"found {airport_shapes_table.count()} airport shapes")
+        if f.shape.points[0] != f.shape.points[-1]:
+            print(f"{id}, {ident}: shape not closed")
+            print(shape)
 
-    area_shapes_table = settings.db.hash_table("area_shapes")
-    area_shapes_table.clear()
-    for i, shape in enumerate(area_shapes.values()):
-        area_shapes_table.set(shape['id'], shape)
-    print(f"found {area_shapes_table.count()} area shapes")
-    #print(names)
+    boundary_shapes_table = settings.db.hash_table("boundary_shapes")
+    boundary_shapes_table.clear()
+    for i, shape in enumerate(shapes.values()):
+        boundary_shapes_table.set(shape['id'], shape)
+    print(f"found {boundary_shapes_table.count()} boundary shapes")
+
+    print(names)
 
 
 if __name__ == "__main__":
     if False:
-        download_chart_shapes()
+        download_boundary_shapes()
     if True:
-        process_chart_shapes()
+        process_boundary_shapes()

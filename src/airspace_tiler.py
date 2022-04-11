@@ -27,6 +27,7 @@ badairports = None
 
 checkairports = {'KPAO', 'KLAX', 'KSNA', 'KFLD', 'KMCI', 'KOFF', 'KJFK', 'KTPA', 'KSAN', 'KBIG', 'KSEA', 'KENA', 'KTRK', 'KSMF', 'KTUS', 'KDMA', 'KPHX'}
 badairports = {'KSTL', 'KSNA', 'KCIC', 'KORH', 'KGRF', 'KJNU', 'KMSY', 'KDTW', 'KBFL', 'KSWF', 'KSCH', 'KDFW', 'KHST', 'KSEA', 'KSUX', 'KADQ', 'KMDT', 'KSLC', 'KPHL', 'KBET', 'KNHK', 'KFMH', 'KJKA', 'KLUF', 'KCLT', 'KDCA', 'KFRI', 'KACT'}
+badareas = {'A-MONTAGUE-E5', 'MONTAGUE-E5', 'A-PETERSBURG-E5', 'A-YUMA-E5', 'A-ST.-MICHAEL-E5', 'A-TATITLEK-E5', 'A-MOUNTAIN-HOME-E5', 'A-NEW-STUYAHOK-E5', 'A-WEST-YELLOWSTONE-E5', 'A-WRANGELL-E5'}
 #airports = {'KNHK'}
 if airports is not None:
     badairports = badairports.difference(airports)
@@ -40,6 +41,10 @@ wall_colors = {
     'C': (0.5, 0.0, 1.0, wall_alpha),
     'D': (0.0, 1.0, 0.5, wall_alpha),
     'E': (1.0, 0.5, 0.0, wall_alpha),
+    'E2': (1.0, 0.5, 0.2, wall_alpha),
+    'E3': (1.0, 0.5, 0.4, wall_alpha),
+    'E4': (1.0, 0.5, 0.6, wall_alpha),
+    'E5': (1.0, 0.5, 0.8, wall_alpha),
     'G': (1.0, 1.0, 0.0, wall_alpha),
 }
 
@@ -615,8 +620,85 @@ class Region(Counted):
 # load and pre-process all the listed airspaces
 #
 
-area_number = 0
+def area_name(name):
+    name = name.replace(' ','-').replace('/','-').replace(',','').replace('.','').replace('--','-').replace('-CLASS-', '-')
+    return f"A-{name}"
 
+def enumerate_areas():
+    shp = shapefile.Reader(settings.nasr_shape_path)
+    names = [field[0] for field in shp.fields]
+    #print('names', names)
+    id_index = names.index('DeletionFlag')
+    ident_index = names.index('IDENT')
+    type_code_index = names.index('TYPE_CODE')
+    lower_desc_index = names.index('LOWER_DESC')
+    upper_desc_index = names.index('UPPER_DESC')
+    lower_uom_index = names.index('LOWER_UOM')
+
+    # organize all shapes into airspaces
+    skipped = set()
+    airspaces = {}
+    for f in shp.shapeRecords():
+        id = f.record[id_index]
+        ident = f.record[ident_index]
+        type_code = f.record[type_code_index]
+        #if id == '':
+        #    type_codes.add(f.record[type_code_index])
+        #    continue
+        if f.shape.points[0] != f.shape.points[-1]:
+            #print("shape not closed")
+            continue
+        if len(id) == 0:
+            id = area_name(ident)
+        elif type_code < 'CLASS_E':
+            continue
+        else:
+            id = f"K{id}-{type_code[6:]}"
+
+        # limit airports that are processed
+        if airports is not None and id not in airports:
+            continue
+
+        if badairports is not None and id in badairports:
+            if id not in skipped:
+                print("skipping", id)
+                skipped.add(id)
+            continue
+        if badareas is not None and id in badareas:
+            if id not in skipped:
+                print("skipping", id)
+                skipped.add(id)
+            continue
+
+        # print parameters for debugging
+        if False and airports is not None:
+            for i, name in enumerate(names):
+                if i < len(f.record):
+                    print(id, name, i, f.record[i])
+
+        # get relevant parameters
+        lower = util.f2m * abs(float(f.record[lower_desc_index]))
+        upper = util.f2m * abs(float(f.record[upper_desc_index]))
+        #print("TYPE_CODE", type_code, float(f.record[lower_desc_index]), float(f.record[upper_desc_index]))
+        if type_code not in ('CLASS_E2', 'CLASS_E3', 'CLASS_E4', 'CLASS_E5'):
+            #if type_code not in ('CLASS_A', 'CLASS_B', 'CLASS_C', 'CLASS_D', 'CLASS_E'):
+            #print("bad typecode", id, type_code)
+            continue
+        if lower == 0 and f.record[lower_uom_index] == 'SFC':
+            lower = util.SFC
+
+
+        # create airspace (if needed)
+        if id not in airspaces:
+            airspaces[id] = Airspace(id, ident, type_code)
+        airspace = airspaces[id]
+
+        # create region
+        region = Region(airspace, lower, upper)
+        region.set_points(region.make_points(f.shape.points[:-1]))
+        airspace.add_region(region)
+
+    return airspaces
 
 def load_airspaces(airports):
     shp = shapefile.Reader(settings.nasr_shape_path)
@@ -632,9 +714,10 @@ def load_airspaces(airports):
     # organize all shapes into airspaces
     skipped = set()
     airspaces = {}
-    type_codes = set()
     for f in shp.shapeRecords():
         id = f.record[id_index]
+        ident = f.record[ident_index]
+        type_code = f.record[type_code_index]
         #if id == '':
         #    type_codes.add(f.record[type_code_index])
         #    continue
@@ -642,11 +725,9 @@ def load_airspaces(airports):
             #print("shape not closed")
             continue
         if len(id) == 0:
-            global area_number
-            area_number = area_number + 1
-            id = "A%04d" % (area_number)
+            id = area_name(ident)
         elif len(id) == 3:
-            id = "K" + id
+            id = f"K{id}-{type_code[6:]}"
 
         # limit airports that are processed
         if airports is not None and id not in airports:
@@ -665,19 +746,12 @@ def load_airspaces(airports):
                     print(id, name, i, f.record[i])
 
         # get relevant parameters
-        ident = f.record[ident_index]
-        type_code = f.record[type_code_index]
-        type_codes.add(type_code)
         lower = util.f2m * abs(float(f.record[lower_desc_index]))
         upper = util.f2m * abs(float(f.record[upper_desc_index]))
         #print("TYPE_CODE", type_code, float(f.record[lower_desc_index]), float(f.record[upper_desc_index]))
-        if type_code.startswith('CLASS_E'):
-            if not airspace_class_E:
-                continue
-            id = f"{id}-E"
-            type_code = 'CLASS_E'
-        if type_code not in ('CLASS_A', 'CLASS_B', 'CLASS_C', 'CLASS_D', 'CLASS_E'):
-            print("bad typecode", id, type_code)
+        if type_code not in ('CLASS_E2', 'CLASS_E3', 'CLASS_E4', 'CLASS_E5'):
+            #if type_code not in ('CLASS_A', 'CLASS_B', 'CLASS_C', 'CLASS_D', 'CLASS_E'):
+            #print("bad typecode", id, type_code)
             continue
         if lower == 0 and f.record[lower_uom_index] == 'SFC':
             lower = util.SFC
@@ -696,14 +770,14 @@ def load_airspaces(airports):
     return airspaces
 
 def generate_overlapping_airspaces(airspaces):
+    print("generate_overlapping_airspaces", airspaces)
+
     # first basic cleanup
     for airspace in airspaces:
         #airspace.simplify()
         #airspace.dump()
         airspace.cleanup()
         #airspace.dump()
-
-    print("generate_overlapping_airspaces", airspaces)
 
     # insert all points into the quad tree
     # points that are close together will be grouped
@@ -787,14 +861,10 @@ def load_airspace_boundaries():
         id = f.record[id_index]
         ident = f.record[ident_index]
         type_code = f.record[type_code_index]
-        if type_code not in ('CLASS_B', 'CLASS_C', 'CLASS_D'):
-            continue
         if len(id) == 0:
-            global area_number
-            area_number = area_number + 1
-            id = f"A{area_number}"
+            id = area_name(ident)
         elif len(id) == 3:
-            id = f"K{id}"
+            id = f"K{id}-{type_code[6:]}"
         key = (id, ident, type_code)
         if key in airspaces:
             airspaces[key] = util.bbox_union(airspaces[key], f.shape.bbox)
@@ -815,11 +885,11 @@ def load_airspace_clusters():
         cluster = {key}
         cluster_bbox = boundaries[key]
         clusters.append(cluster)
-        updated = True
+        updated = '_E' not in key[2]
         while updated:
             updated = False
             for key in remaining:
-                if util.bbox_overlap(cluster_bbox, boundaries[key]):
+                if '_E' not in key[2] and util.bbox_overlap(cluster_bbox, boundaries[key]):
                     cluster_bbox = util.bbox_union(cluster_bbox, boundaries[key])
                     cluster.add(key)
                     updated = True
@@ -829,6 +899,21 @@ def load_airspace_clusters():
 
 if __name__ == "__main__":
     tm = time.time()
+    if False:
+        print("loading areas...")
+        all_areas = enumerate_areas()
+        print("found {len(all_areas)} areas")
+        for name, area in all_areas.items():
+            try:
+                generate_overlapping_airspaces([area])
+            except:
+                traceback.print_exc()
+
+                print("FAILED", name)
+                badareas.add(name)
+        print("badareas", badareas)
+        sys.exit(0)
+
     if airports is None:
         clusters = load_airspace_clusters()
         print(f"found {len(clusters)} clusters")
