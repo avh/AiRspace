@@ -495,7 +495,7 @@ chart_notes = {
     # ----------- Grand Canyon (part of tac charts) ------------
 
     "Grand Canyon General Aviation": [
-        ('bounds', -114.108, 35.633, -111.308, 36.641)
+        ('bounds', -114.108, 35.633, -111.308, 36.641),
         ('box', -11.65, 36.341, -111, 37),
     ],
 }

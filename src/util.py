@@ -1,6 +1,6 @@
 # (c)2019, Arthur van Hoff
 
-import os, sys, requests, math, shapely, shapely.geometry, shapely.ops, numpy
+import os, sys, requests, math, shapely, shapely.geometry, shapely.ops, numpy, hashlib
 from scipy import optimize
 import settings
 
@@ -184,7 +184,8 @@ def polygon_intersection(p1, p2):
 def download_file(url, dst=None):
     filename = os.path.basename(url)
     if dst is None:
-        dst = os.path.join(settings.tmp_dir, os.path.basename(url))
+        hash = hashlib.md5(url.encode('utf-8')).hexdigest()
+        dst = os.path.join(settings.tmp_dir, hash)
     if os.path.exists(dst):
         return dst
 
