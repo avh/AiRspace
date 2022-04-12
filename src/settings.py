@@ -491,7 +491,7 @@ chart_notes = {
         ('bounds', -112.85, 40.125, -111.100, 41.416),
     ],
     "San Diego TAC": [
-        ('bounds', -117.966, 32.5, -116.291, 33.616),
+        ('bounds', -117.966, 32.5, -116.300, 33.610),
     ],
     "San Francisco TAC": [
         ('bounds', -123.15,37.008, -121.382,38.19),
@@ -506,12 +506,126 @@ chart_notes = {
         ('bounds', -83.09, 27.296, -81.833, 28.59)
     ],
     "Orlando TAC": [
-        ('bounds', -82.016, 27.83, -80.146, 29.184)
+        ('bounds', -82.016, 27.83, -80.146, 29.194)
     ],
 
     # ----------- Grand Canyon (part of tac charts) ------------
 
     "Grand Canyon General Aviation": [
+        ('bounds', -114.108, 35.633, -111.319, 36.641),
+        ('box', -111.65, 36.341, -111, 37),
+    ],
+
+    # ----------- Flyway Planning Charts ------------
+
+    "Anchorage FLY": [
+        ('bounds', -151.813, 60.563, -148.399, 61.655)
+    ],
+    "Fairbanks FLY": [
+        ('bounds', -149.3, 64.188, -145.783, 65.25)
+    ],
+    "Atlanta FLY": [
+        ('bounds', -85.29, 32.975, -83.6, 34.308),
+    ],
+    "Baltimore-Washington FLY": [
+        ('bounds', -78.315, 38.266, -75.928, 39.8)
+    ],
+    "Boston FLY": [
+        ('bounds', -71.855, 41.25, -69.588, 42.866)
+    ],
+    "Charlotte FLY": [
+        ('bounds', -81.815, 34.665, -80.100, 35.896)
+    ],
+    "Chicago FLY": [
+        ('bounds', -88.766, 41.48, -87.29, 42.482)
+    ],
+    "Cincinnati FLY": [
+        ('bounds', -85.533, 38.478, -83.76, 40.07)
+    ],
+    "Cleveland FLY": [
+        ('bounds', -82.59, 40.866, -81.095, 41.9)
+    ],
+    "Dallas-Ft Worth FLY": [
+        ('bounds', -98.2, 32.050, -95.899, 33.666)
+    ],
+    "Denver FLY": [
+        ('bounds', -105.57, 39.25, -103.799, 40.566)
+    ],
+    "Colorado Springs FLY": [
+        ('bounds', -105.506, 37.8, -103.483, 39.266)
+    ],
+    "Detroit FLY": [
+        ('bounds', -84.278, 41.716, -82.399, 42.855)
+    ],
+    "Houston FLY": [
+        ('bounds', -96.133, 29.09, -94.563, 30.500)
+    ],
+    "Kansas City FLY": [
+        ('bounds', -95.886, 38.733, -94.091, 39.908)
+    ],
+    "Las Vegas FLY": [
+        ('bounds', -115.616, 35.7, -113.895, 36.733),
+    ],
+    "Los Angeles FLY": [
+        ('bounds', -119, 33.41, -116.810, 34.516),
+    ],
+    "Memphis FLY": [
+        ('bounds', -90.85, 34.4, -89.155, 35.705),
+    ],
+    "Miami FLY": [
+        ('bounds', -81.165, 25.283, -79.399, 26.765),
+        ('box', -80.183, 25, -79, 25.483),
+        # REMIND: inset
+    ],
+    "Minneapolis-St Paul FLY": [
+        ('bounds', -94.016, 44.36, -92.458, 45.375)
+    ],
+    "New Orleans FLY": [
+        ('bounds', -91.265, 29.558, -89.663, 30.583)
+    ],
+    "New York FLY": [
+        ('bounds', -74.89, 40.216, -72.66, 41.266)
+    ],
+    "Philadelphia FLY": [
+        ('bounds', -75.893, 39.48, -74.51, 40.5)
+    ],
+    "Phoenix FLY": [
+        ('bounds', -112.858, 32.783, -111.199, 34.085),
+    ],
+    "Pittsburgh FLY": [
+        ('bounds', -80.95, 40, -79.73, 41.0)
+    ],
+    "Puerto Rico-VI FLY": [
+        ('bounds', -67.5, 17.645, -64.24, 18.7833)
+    ],
+    "St Louis FLY": [
+        ('bounds', -91.066, 38.183, -89.63, 39.218)
+    ],
+    "Salt Lake City FLY": [
+        ('bounds', -112.85, 40.125, -111.100, 41.416),
+    ],
+    "San Diego FLY": [
+        ('bounds', -117.966, 32.5, -116.300, 33.610),
+    ],
+    "San Francisco FLY": [
+        ('bounds', -123.15,37.008, -121.382,38.19),
+    ],
+    "Seattle FLY": [
+        ('bounds', -123.183, 46.75, -121.59, 48.061),
+    ],
+    "Portland FLY": [
+        ('bounds', -123.183, 45.2, -122.076, 46.0166),
+    ],
+    "Tampa FLY": [
+        ('bounds', -83.09, 27.296, -81.833, 28.59)
+    ],
+    "Orlando FLY": [
+        ('bounds', -82.016, 27.83, -80.146, 29.194)
+    ],
+
+    # ----------- Grand Canyon (part of FLY charts) ------------
+
+    "Grand Canyon Air Tour Operators": [
         ('bounds', -114.108, 35.633, -111.319, 36.641),
         ('box', -111.65, 36.341, -111, 37),
     ],

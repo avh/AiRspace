@@ -43,9 +43,19 @@ tac_layer = new Cesium.UrlTemplateImageryProvider({
 });
 viewer.scene.imageryLayers.addImageryProvider(tac_layer);
 
+fly_layer = new Cesium.UrlTemplateImageryProvider({
+    url : 'tiles/fly/{z}/{x}/{y}.png',
+    credit : 'Artfahrt Inc',
+    hasAlphaChannel: true,
+    //minimumLevel: 8,
+    maximumLevel: 12,
+});
+viewer.scene.imageryLayers.addImageryProvider(fly_layer);
+
 viewer.scene.imageryLayers.get(0).show = false;
 viewer.scene.imageryLayers.get(1).show = false;
 viewer.scene.imageryLayers.get(2).show = false;
+viewer.scene.imageryLayers.get(3).show = false;
 viewer.scene.globe.depthTestAgainstTerrain = true;
 viewer.scene.globe.terrainExaggeration = 1.0;
 
@@ -97,7 +107,17 @@ function showLayer(name, on)
         viewer.scene.imageryLayers.get(1).show = on;
     } else if (name == 'TAC') {
         viewer.scene.imageryLayers.get(2).show = on;
-    } else if (name == 'TERRAIN') {
+        if (on) {
+            viewer.scene.imageryLayers.get(3).show = false;
+            $('#FLY').prop('checked', false)
+        }
+    } else if (name == 'FLY') {
+        viewer.scene.imageryLayers.get(3).show = on;
+        if (on) {
+            viewer.scene.imageryLayers.get(2).show = false;
+            $('#TAC').prop('checked', false)
+        }
+   } else if (name == 'TERRAIN') {
         if (on) {
 	    viewer.terrainProvider = Cesium.createWorldTerrain({
                 requestWaterMask : false,
