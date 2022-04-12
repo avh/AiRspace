@@ -218,6 +218,3 @@ def download_file(url, dst=None):
     print("downloaded %s, %dMB" % (filename, clen//(1024*1024)))
     os.rename(tmp, dst)
     return dst
-
-if __name__ == '__main__':
-    print(list(enumerate_lonlat((178, 50), (-178, 50))))

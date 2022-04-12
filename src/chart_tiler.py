@@ -15,7 +15,7 @@ tile_size = 256
 areas = None
 #areas = {"San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"}
 #areas = {"Caribbean - 1", "Caribbean - 2"}
-#areas = {"Western Aleutian Islands"}
+#areas = {"Hawaiian Islands"}
 if areas is not None:
     print(f"processing: {areas}")
 
@@ -354,6 +354,18 @@ class ChartFile:
             self.rgba[y-e:, :, 3] = 0
             self.rgba[y-e-m:y-e, :, 3] = self.rgba[y-e-m:y-e, :, 3] * alpha
 
+        elif args[0] == 'l-line':
+            alpha = (numpy.arange(0, m) / m)
+            for x, y in self.between_latlon((float(args[1]), float(args[2])), (float(args[3]), float(args[4]))):
+                self.rgba[y, 0:x+e, 3] = 0
+                self.rgba[y, x+e:x+e+m, 3] = self.rgba[y, x+e:x+e+m, 3] * alpha
+
+        elif args[0] == 'r-line':
+            alpha = (numpy.arange(0, m) / m)
+            for x, y in self.between_latlon((float(args[1]), float(args[2])), (float(args[3]), float(args[4]))):
+                self.rgba[y, x-e:, 3] = 0
+                self.rgba[y, x-e-m:x-e, 3] = self.rgba[y, x-e-m:x-e, 3] * alpha
+
         elif args[0] == 'bounds':
             self.apply(('l-lon', args[1]))
             self.apply(('b-lat', args[2]))
@@ -372,12 +384,6 @@ class ChartFile:
             xmax = min(self.width, xmax + m)
             ymin = max(0, ymin - m)
             ymax = min(self.height, ymax + m)
-            #alpha = (numpy.arange(0, m)/m)[None, ...]
-            #self.rgba[ymin:ymax, xmin:xmin+m, 3] = self.rgba[ymin:ymax, xmin:xmin+m, 3] * numpy.flip(alpha, 1)
-            #self.rgba[ymin:ymax, xmax-m:xmax, 3] = self.rgba[ymin:ymax, xmax-m:xmax, 3] * alpha
-            #alpha = alpha.transpose()
-            #self.rgba[ymin:ymin+m, xmin:xmax, 3] = self.rgba[ymin:ymin+m, xmin:xmax, 3] * numpy.flip(alpha, 0)
-            #self.rgba[ymax-m:ymax, xmin:xmax, 3] = self.rgba[ymax-m:ymax, xmin:xmax, 3] * alpha
 
             for i in range(0, m):
                 alpha = 1.0 - i / m
