@@ -1,6 +1,6 @@
 # (c)2019, Arthur van Hoff
 
-import os, sys, requests, math, shapely, shapely.geometry, shapely.ops, numpy, hashlib
+import os, sys, requests, math, shapely, shapely.geometry, shapely.ops, numpy, hashlib, time
 from scipy import optimize
 import settings
 
@@ -139,6 +139,14 @@ def enumerate_triples(points):
         p0 = p1
         p1 = p2
 
+def time_str(tm):
+    tm = math.floor(time.time() - tm)
+    hrs = tm // 3600
+    min = (tm // 60) % 60
+    sec = (tm % 60)
+    return f"{hrs}:{min:02}:{sec:02}"
+
+
 #
 # Given a complex polygon construct a list of simple
 # polygons that describe the same area.
@@ -210,3 +218,6 @@ def download_file(url, dst=None):
     print("downloaded %s, %dMB" % (filename, clen//(1024*1024)))
     os.rename(tmp, dst)
     return dst
+
+if __name__ == '__main__':
+    print(list(enumerate_lonlat((178, 50), (-178, 50))))

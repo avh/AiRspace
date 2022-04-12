@@ -82,7 +82,7 @@ defaultHeight = {
 }
 
 #
-# Database
+# Database (requires local redis-server)
 #
 
 db = db.Database("charts")
@@ -183,8 +183,8 @@ chart_notes = {
     "Dutch Harbor SEC": [
         ('l-lon', -173),
         ('b-lat', 52),
-        ('box', -173, 54.583, -165.166, 57),
-        ('box', -173, 54.833, -169.266, 57),
+        ('box', -173, 54.583, -169.266, 57),
+        ('box', -170, 54.9, -165.000, 57),
     ],
     "El Paso SEC": [
         ('l-lon', -109),
@@ -362,14 +362,14 @@ chart_notes = {
         ('box', -73.083, 35.8, -71.5, 37.783),
     ],
     "Western Aleutian Islands West SEC": [
-        #('l-lon', 178),
-        #('t-fix', 179.5, 53.135),
-        #('b-lat', 51),
+        ('l-fix', 169.365, 51),
+        ('t-fix', 170, 53.15),
+        ('b-lat', 51),
     ],
     "Western Aleutian Islands East SEC": [
-        #('l-fix', 169.365, 51),
-        #('t-fix', 178, 53.116),
-        #('b-lat', 51),
+        ('t-fix', 178, 53.116),
+        ('l-lon', 178),
+        ('b-lat', 51),
     ],
     "Wichita SEC": [
         ('l-lon', -104),
@@ -496,6 +496,6 @@ chart_notes = {
 
     "Grand Canyon General Aviation": [
         ('bounds', -114.108, 35.633, -111.308, 36.641),
-        ('box', -11.65, 36.341, -111, 37),
+        ('box', -111.65, 36.341, -111, 37),
     ],
 }

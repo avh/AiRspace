@@ -1,7 +1,7 @@
 # (c)2018-2022, Artfhart Inc, Arthur van Hoff
 
-import os, requests, lxml.etree, dateutil
-import settings
+import os, requests, lxml.etree, dateutil, time
+import settings, util
 
 #
 # Scan the FAA digital products page for the current list of SEC and TAC charts.
@@ -21,6 +21,7 @@ def update_chart_list(html, tag, kind, table, col=1):
         table.set(name, sec)
 
 if __name__ == '__main__':
+    tm = time.time()
     req = requests.get(url=settings.faa_chart_url)
     html = lxml.etree.HTML(req.text)
 
@@ -34,14 +35,15 @@ if __name__ == '__main__':
     update_chart_list(html, 'terminalArea', 'tac', tac_list)
     update_chart_list(html, 'grandCanyon', 'tac', tac_list)
 
-    heli_list = settings.db.hash_table("heli_list")
-    heli_list.clear()
-    update_chart_list(html, 'helicopter', 'heli', heli_list)
+    hel_list = settings.db.hash_table("hel_list")
+    hel_list.clear()
+    update_chart_list(html, 'helicopter', 'hel', hel_list)
 
-    plan_list = settings.db.hash_table("plan_list")
-    update_chart_list(html, 'Planning', 'plan', plan_list)
+    pln_list = settings.db.hash_table("pln_list")
+    update_chart_list(html, 'Planning', 'pln', pln_list)
 
-    print("%d sectional charts" % (sec_list.count()))
-    print("%d terminal area charts" % (tac_list.count()))
-    print("%d helicopter charts" % (heli_list.count()))
-    print("%d planning charts" % (plan_list.count()))
+    print(f"{sec_list.count()} sectional charts")
+    print(f"{tac_list.count()} terminal area charts")
+    print(f"{hel_list.count()} helicopter charts")
+    print(f"{pln_list.count()} planning charts")
+    print(f"done in {util.time_str(tm)}")

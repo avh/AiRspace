@@ -1,6 +1,6 @@
 # (c)2018-2020, Artfahrt Inc, Arthur van Hoff
 
-import os, zipfile
+import os, zipfile, time
 import settings, util
 
 def download_chart(chart):
@@ -31,6 +31,7 @@ def download_chart(chart):
 #
 
 if __name__ == '__main__':
+    tm = time.time()
     sec_list = settings.db.hash_table("sec_list")
     for chart in sec_list.all():
         download_chart(chart)
@@ -46,3 +47,5 @@ if __name__ == '__main__':
     plan_list = settings.db.hash_table("plan_list")
     for chart in plan_list.all():
         download_chart(chart)
+
+    print(f"done in {util.time_str(tm)}")

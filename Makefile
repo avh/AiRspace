@@ -3,13 +3,13 @@ TOP=.
 
 all: update chart_tiler airspace_tiler
 
-update: chart_list_update chart_download chart_shapes_download
+update: chart_list_update chart_data_download chart_shapes_download
 
 chart_list_update: flake8
 	python3 src/chart_list_update.py
 
-chart_download: flake8
-	python3 src/chart_download.py
+chart_data_download: flake8
+	python3 src/chart_data_download.py
 
 chart_shapes_download: flake8
 	python3 src/chart_shapes_download.py

@@ -5,9 +5,9 @@
 # REMIND: Western Aleutian Islands SEC (across date line)
 # REMIND: r-lon
 
-import os, sys, glob, gdal, osr, pyproj, db, PIL.Image, math, numpy, re, affine
+import os, sys, glob, osgeo.gdal, osgeo.osr, pyproj, db, PIL.Image, math, numpy, re, affine
 import cv2, shutil, tqdm, multiprocessing, filelock, hashlib, time
-import settings
+import settings, util
 
 
 max_zoom = 13
@@ -15,12 +15,13 @@ tile_size = 256
 areas = None
 #areas = {"San Francisco", "Seattle", "Los Angeles", "Las Vegas", "Phoenix", "Klamath Falls", "Salt Lake City", "Great Falls"}
 #areas = {"Caribbean - 1", "Caribbean - 2"}
+#areas = {"Western Aleutian Islands"}
 if areas is not None:
     print(f"processing: {areas}")
 
 charts_table = settings.db.geo_table("charts")
 
-epsg3857 = pyproj.Proj(init='epsg:3857')
+epsg3857 = pyproj.Proj('epsg:3857')
 #print(epsg3857)
 earth_circumference = epsg3857(180, 0)[0] - epsg3857(-180, 0)[0]
 #print(earth_circumference)
@@ -142,7 +143,7 @@ def get_lonlat(ds):
 
 def get_projection(ds):
     inSRS_wkt = ds.GetProjection()  # gives SRS in WKT
-    inSRS_converter = osr.SpatialReference()  # makes an empty spatial ref object
+    inSRS_converter = osgeo.osr.SpatialReference()  # makes an empty spatial ref object
     inSRS_converter.ImportFromWkt(inSRS_wkt)  # populates the spatial ref object with our WKT SRS
     return inSRS_converter.ExportToProj4()  # Exports an SRS ref as a Proj4 string usable by PyProj
 
@@ -160,6 +161,7 @@ def lonlat2xy(lonlat, reverse_transform, proj):
 def lonlat2xyr(lonlat, reverse_transform, proj):
     xy = lonlat2xy(lonlat, reverse_transform, proj)
     return (round(xy[0]), round(xy[1]))
+
 
 def check_lon(lbl, lon):
     assert (lon > -180 and lon < -50) or (lon > 165 and lon < 180), f"{lbl}: invalid longitude {lon}"
@@ -186,7 +188,7 @@ def list_charts_for_tiling(chart_list, chart, kind):
             continue
         if len(settings.chart_notes[filename]) == 0:
             continue
-        ds = gdal.Open(chart_file)
+        ds = osgeo.gdal.Open(chart_file)
         tx = ds.GetGeoTransform()
         if tx[1] == 1.0:
             print(f"skipping {chart_file}")
@@ -215,6 +217,182 @@ def list_charts_for_tiling(chart_list, chart, kind):
 
         chart_list.append((map_level, filename, chart_file))
 
+class ChartFile:
+    def __init__(self, path:str):
+        self.path = str
+        self.ds = osgeo.gdal.Open(path)
+        self.tx = self.ds.GetGeoTransform()
+        self.width = self.ds.RasterXSize
+        self.height = self.ds.RasterYSize
+        self.proj = pyproj.Proj(get_projection(self.ds))
+        self.forward_transform = affine.Affine(*get_transform(self.ds)[:6])
+        self.reverse_transform = ~self.forward_transform
+        self.rgba = get_rgba(self.ds)
+        self.edge = 5
+        self.margin = 50 if ' TAC' in path else 10
+        self.lon_min = 360
+        self.lat_min = 180
+        self.lon_max = -360
+        self.lat_max = - 180
+        for x in (0, self.width):
+            for y in (0, self.height/2, self.height):
+                lon, lat = self.xy2lonlat((x,y))
+                self.lon_min = min(lon, self.lon_min)
+                self.lon_max = max(lon, self.lon_max)
+        for x in (0, self.width/2, self.width):
+            for y in (0, self.height):
+                lon, lat = self.xy2lonlat((x,y))
+                self.lat_min = min(lat, self.lat_min)
+                self.lat_max = max(lat, self.lat_max)
+        if self.lon_min < -90 and self.lon_max > 90:
+            self.lon_min, self.lon_max = self.lon_max, self.lon_min
+
+    def xy2lonlat(self, xy):
+        x, y = self.forward_transform * (xy[0], xy[1])
+        return self.proj(x, y, inverse=True)
+
+    def lonlat2xy(self, lonlat):
+        return self.reverse_transform * self.proj(lonlat[0], lonlat[1])
+
+    def lonlat2xyr(self, lonlat):
+        xy = self.lonlat2xy(lonlat)
+        return (round(xy[0]), round(xy[1]))
+
+    def enum_lonlat(self, start, stop, step=0.1):
+        if start[0] > 0 and stop[0] < 0:
+            stop = (stop[0] + 360, stop[1])
+
+        v = (stop[0] - start[0]), (stop[1] - start[1])
+        d = math.sqrt(v[0]**2 + v[1]**2)
+        n = math.ceil(d / step)
+
+        for i in range(0, n+1):
+            lon = start[0] + (v[0] * i / n)
+            lat = start[1] + (v[1] * i / n)
+            yield lon if lon < 180 else lon - 360, lat
+
+    def enum_xy(self, start, stop):
+        v = (stop[0] - start[0]), (stop[1] - start[1])
+        nsteps = max(1, abs(v[0]), abs(v[1]))
+        for s in range(0, nsteps):
+            x = start[0] + round(v[0]*s/nsteps)
+            y = start[1] + round(v[1]*s/nsteps)
+            if x >= 0 and x < self.width and y >= 0 and y < self.height:
+                yield x, y
+
+    def between_latlon(self, start, stop, step=0.1):
+        lastxy = None
+        for lonlat in self.enum_lonlat(start, stop, step):
+            xy = self.lonlat2xyr(lonlat)
+            if lastxy is not None:
+                yield from self.enum_xy(lastxy, xy)
+            lastxy = xy
+        if lastxy is not None:
+            yield from self.enum_xy(lastxy, lastxy)
+
+    def fade_edges(self, nsteps):
+        alpha = (numpy.arange(0, nsteps) / nsteps)[None,...]
+        self.rgba[:, 0:nsteps, 3] = self.rgba[:, 0:nsteps, 3] * alpha
+        self.rgba[:, -nsteps:, 3] = self.rgba[:, -nsteps:, 3] * numpy.flip(alpha, 1)
+        alpha = alpha.transpose()
+        self.rgba[0:nsteps, :, 3] = self.rgba[0:nsteps, :, 3] * alpha
+        self.rgba[-nsteps:, :, 3] = self.rgba[-nsteps:, :, 3] * numpy.flip(alpha, 0)
+
+    def apply(self, args):
+        e = self.edge
+        m = self.margin
+
+        if args[0] == 'l-lon':
+            lon = float(args[1])
+            alpha = (numpy.arange(0, m) / m)
+            for x, y in self.between_latlon((lon, self.lat_min - 0.1), (lon, self.lat_max + 0.1)):
+                self.rgba[y, 0:x+e, 3] = 0
+                self.rgba[y, x+e:x+e+m, 3] = self.rgba[y, x+e:x+e+m, 3] * alpha
+
+        elif args[0] == 'r-lon':
+            lon = float(args[1])
+            alpha = numpy.flip(numpy.arange(0, m) / m)
+            for x, y in self.between_latlon((lon, self.lat_min - 0.1), (lon, self.lat_max + 0.1)):
+                self.rgba[y, x-e:, 3] = 0
+                self.rgba[y, x-e-m:x-e, 3] = self.rgba[y, x-e-m:x-e, 3] * alpha
+
+        elif args[0] == 't-lat':
+            lat = float(args[1])
+            alpha = (numpy.arange(0, m) / m)
+            for x, y in self.between_latlon((self.lon_min - 0.1, lat), (self.lon_max + 0.1, lat)):
+                self.rgba[:y+e, x, 3] = 0
+                self.rgba[y+e:y+e+m, x, 3] = self.rgba[y+e:y+e+m, x, 3] * alpha
+
+        elif args[0] == 'b-lat':
+            lat = float(args[1])
+            alpha = numpy.flip(numpy.arange(0, m) / m)
+            for x, y in self.between_latlon((self.lon_min - 0.1, lat), (self.lon_max + 0.1, lat)):
+                self.rgba[y-e:, x, 3] = 0
+                self.rgba[y-e-m:y-e, x, 3] = self.rgba[y-e-m:y-e, x, 3] * alpha
+
+        elif args[0] == 'l-fix':
+            x = self.lonlat2xyr((float(args[1]), float(args[2])))[0]
+            alpha = (numpy.arange(0, m) / m)[None, ...]
+            self.rgba[:, 0:x+e, 3] = 0
+            self.rgba[:, x+e:x+e+m, 3] = self.rgba[:, x+e:x+e+m, 3] * alpha
+
+        elif args[0] == 'r-fix':
+            x = self.lonlat2xyr((float(args[1]), float(args[2])))[0]
+            alpha = numpy.flip(numpy.arange(0, m) / m)[None, ...]
+            self.rgba[:, x-e:, 3] = 0
+            self.rgba[:, x-e-m:x-e, 3] = self.rgba[:, x-e-m:x-e, 3] * alpha
+
+        elif args[0] == 't-fix':
+            y = self.lonlat2xyr((float(args[1]), float(args[2])))[1]
+            alpha = (numpy.arange(0, m) / m)[..., None]
+            self.rgba[0:y+e, :, 3] = 0
+            self.rgba[y+e:y+e+m, :, 3] = self.rgba[y+e:y+e+m, :, 3] * alpha
+
+        elif args[0] == 'b-fix':
+            y = self.lonlat2xyr((float(args[1]), float(args[2])))[1]
+            alpha = numpy.flip(numpy.arange(0, m) / m)[..., None]
+            self.rgba[y-e:, :, 3] = 0
+            self.rgba[y-e-m:y-e, :, 3] = self.rgba[y-e-m:y-e, :, 3] * alpha
+
+        elif args[0] == 'bounds':
+            self.apply(('l-lon', args[1]))
+            self.apply(('b-lat', args[2]))
+            self.apply(('r-lon', args[3]))
+            self.apply(('t-lat', args[4]))
+
+        elif args[0] == 'box':
+            xy1 = self.lonlat2xyr((float(args[1]), float(args[2])))
+            xy2 = self.lonlat2xyr((float(args[3]), float(args[4])))
+            xmin = max(0, min(xy1[0], xy2[0]) - e)
+            xmax = min(self.width, max(xy1[0], xy2[0]) + e)
+            ymin = max(0, min(xy1[1], xy2[1]) - e)
+            ymax = min(self.height, max(xy1[1], xy2[1]) + e)
+            self.rgba[ymin:ymax, xmin:xmax, 3] = 0
+            xmin = max(0, xmin - m)
+            xmax = min(self.width, xmax + m)
+            ymin = max(0, ymin - m)
+            ymax = min(self.height, ymax + m)
+            #alpha = (numpy.arange(0, m)/m)[None, ...]
+            #self.rgba[ymin:ymax, xmin:xmin+m, 3] = self.rgba[ymin:ymax, xmin:xmin+m, 3] * numpy.flip(alpha, 1)
+            #self.rgba[ymin:ymax, xmax-m:xmax, 3] = self.rgba[ymin:ymax, xmax-m:xmax, 3] * alpha
+            #alpha = alpha.transpose()
+            #self.rgba[ymin:ymin+m, xmin:xmax, 3] = self.rgba[ymin:ymin+m, xmin:xmax, 3] * numpy.flip(alpha, 0)
+            #self.rgba[ymax-m:ymax, xmin:xmax, 3] = self.rgba[ymax-m:ymax, xmin:xmax, 3] * alpha
+
+            for i in range(0, m):
+                alpha = 1.0 - i / m
+                self.rgba[ymin+i:ymax-i, xmin+i, 3] = self.rgba[ymin+i:ymax-i, xmin+i, 3] * alpha
+                self.rgba[ymin+i:ymax-i, xmax-i-1, 3] = self.rgba[ymin+i:ymax-i, xmax-i-1, 3] * alpha
+                self.rgba[ymin+i, xmin+i+1:xmax-i-1, 3] = self.rgba[ymin+i, xmin+i+1:xmax-i-1, 3] * alpha
+                self.rgba[ymax-i-1, xmin+i+1:xmax-i-1, 3] = self.rgba[ymax-i-1, xmin+i+1:xmax-i-1, 3] * alpha
+
+    def save(self, filename):
+        tm = time.time()
+        print(f"writing {filename}.png ...")
+        cv2.imwrite(f"{filename}.png", self.rgba, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+        print(f"saved {filename}.png in {util.time_str(tm)}")
+
+
 def process_chart(inq, outq, level, overwrite):
     touched = []
     while True:
@@ -223,168 +401,30 @@ def process_chart(inq, outq, level, overwrite):
             break
         filename = chart[1]
         chart_file = chart[2]
+        cf = ChartFile(chart_file)
+        print(chart_file)
 
-        ds = gdal.Open(chart_file)
-        tx = ds.GetGeoTransform()
-        width = ds.RasterXSize
-        height = ds.RasterYSize
-        print(f"process_chart {chart}, {width}x{height}")
+        rgba = cf.rgba
+        proj = cf.proj
+        #forward_transform = cf.forward_transform
+        reverse_transform = cf.reverse_transform
+        #width = cf.width
+        #height = cf.height
+        lon_min = cf.lon_min
+        lon_max = cf.lon_max
+        lat_min = cf.lat_min
+        lat_max = cf.lat_max
 
-        proj = pyproj.Proj(get_projection(ds))
-        forward_transform = affine.Affine(*get_transform(ds)[:6])
-        reverse_transform = ~forward_transform
-
-        lon_min = 360
-        lat_min = 180
-        lon_max = -360
-        lat_max = - 180
-        for xy in [(0, 0), (width, 0), (width/2, 0), (0, height), (width/2, height), (width, height)]:
-            lon,lat = xy2lonlat(xy, forward_transform, proj)
-            lon_min = min(lon, lon_min)
-            lon_max = max(lon, lon_max)
-            lat_min = min(lat, lat_min)
-            lat_max = max(lat, lat_max)
-
-        if lon_max > 90 and lon_min < -90:
-            lon_tmp = lon_max
-            lon_max = lon_min
-            lon_min = lon_tmp
-
-        # load image data
-        rgba = get_rgba(ds)
 
         # fade edges
-        fade_edges(rgba, nsteps=20)
+        cf.fade_edges(nsteps=20)
 
         # process notes
         for args in settings.chart_notes[filename]:
-            #print(args)
-            edge = 5
-            margin = 10 if level.type == 'sec' else 50
+            cf.apply(args)
 
-            if args[0] == 'l-lon':
-                lastxy = (-1, -1)
-                lon = float(args[1])
-                for lat in numpy.arange(lat_max+1, lat_min-1, -0.1):
-                    xy = lonlat2xyr((lon,lat), reverse_transform, proj)
-                    xy = (xy[0] + edge, xy[1])
-                    for y in range(max(0, lastxy[1]), min(height-1, xy[1])):
-                        x = round(lastxy[0] + (xy[0] - lastxy[0]) * (y - lastxy[1]) / (xy[1] - lastxy[1]))
-                        rgba[y, 0:x, 3] = 0
-                        for m in range(0, margin):
-                            rgba[y, x + m, 3] = rgba[y, x + m, 3] * m / margin
-                    lastxy = xy
-
-            elif args[0] == 'r-lon':
-                lastxy = (-1, -1)
-                lon = float(args[1])
-                for lat in numpy.arange(lat_max+1, lat_min-1, -0.1):
-                    xy = lonlat2xyr((lon,lat), reverse_transform, proj)
-                    xy = (xy[0] - edge, xy[1])
-                    for y in range(max(0, lastxy[1]), min(height-1, xy[1])):
-                        x = round(lastxy[0] + (xy[0] - lastxy[0]) * (y - lastxy[1]) / (xy[1] - lastxy[1]))
-                        rgba[y, x:, 3] = 0
-                        for m in range(0, margin):
-                            rgba[y, min(x - m, width-1), 3] = rgba[y, min(x - m, width-1), 3] * m / margin
-                    lastxy = xy
-
-            elif args[0] == 'b-lat':
-                lastxy = (-1, -1)
-                lat = float(args[1])
-                for lon in numpy.arange(lon_min-1, lon_max+1, 0.1):
-                    xy = lonlat2xyr((lon,lat), reverse_transform, proj)
-                    xy = (xy[0], xy[1] - edge)
-                    for x in range(max(0, lastxy[0]), min(width-1, xy[0])):
-                        y = round(lastxy[1] + (xy[1] - lastxy[1]) * (x - lastxy[0]) / (xy[0] - lastxy[0]))
-                        rgba[y:height-1, x, 3] = 0
-                        for m in range(0, margin):
-                            rgba[y + m, x, 3] = rgba[y + m, x, 3] * m / margin
-                    lastxy = xy
-
-            elif args[0] == 't-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                check_lonlat(filename, (lon, lat))
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (xy[0], max(0, xy[1] + edge))
-                rgba[0:xy[1],:,3] = 0
-                for m in range(0, margin):
-                    rgba[xy[1]+m,:,3] = rgba[xy[1]+m,:,3] * (m / margin)
-
-            elif args[0] == 'b-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (xy[0], min(xy[1] - edge, height))
-                rgba[xy[1]:height-1,:,3] = 0
-                for m in range(0, margin):
-                    rgba[xy[1]-m,:,3] = rgba[xy[1]-m,:,3] * (m / margin)
-
-            elif args[0] == 'l-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                check_lonlat(filename, (lon, lat))
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (max(0, xy[0] + edge), xy[1])
-                rgba[:,0:xy[0],3] = 0
-                for m in range(0, margin):
-                    rgba[:,xy[0]+m,3] = rgba[:,xy[0]+m,3] * (m / margin)
-
-            elif args[0] == 'r-fix':
-                lon = float(args[1])
-                lat = float(args[2])
-                check_lonlat(filename, (lon, lat))
-                xy = lonlat2xyr((lon, lat), reverse_transform, proj)
-                xy = (min(xy[0] - edge, width), xy[1])
-                rgba[:,xy[0]:width-1,3] = 0
-                for m in range(0, margin):
-                    rgba[:,xy[0]-m,3] = rgba[:,xy[0]-m,3] * (m / margin)
-
-            elif args[0] == 'bounds':
-                lonlat1 = (float(args[1]), float(args[2]))
-                lonlat2 = (float(args[3]), float(args[4]))
-                check_lonlat_box(filename, lonlat1, lonlat2)
-                xy1 = lonlat2xyr(lonlat1, reverse_transform, proj)
-                xy2 = lonlat2xyr(lonlat2, reverse_transform, proj)
-                xmin = max(0, min(xy1[0], xy2[0]) + edge)
-                xmax = min(width-1, max(xy1[0], xy2[0]) - edge)
-                ymin = max(0, min(xy1[1], xy2[1]) + edge)
-                ymax = min(height-1, max(xy1[1], xy2[1]) - edge)
-                rgba[0:ymin,:,3] = 0
-                rgba[ymax:height,:,3] = 0
-                rgba[:,0:xmin,3] = 0
-                rgba[:,xmax:width] = 0
-                for m in range(0, margin):
-                    f = m/margin
-                    rgba[ymin+m,xmin+m:xmax-m,3] = f * rgba[ymin+m,xmin+m:xmax-m,3]
-                    rgba[ymax-m,xmin+m:xmax-m,3] = f * rgba[ymax-m,xmin+m:xmax-m,3]
-                    rgba[ymin+m:ymax-m,xmin+m,3] = f * rgba[ymin+m:ymax-m,xmin+m,3]
-                    rgba[ymin+m:ymax-m,xmax-m,3] = f * rgba[ymin+m:ymax-m,xmax-m,3]
-
-            elif args[0] == 'box':
-                lonlat1 = (float(args[1]), float(args[2]))
-                lonlat2 = (float(args[3]), float(args[4]))
-                check_lonlat_box(filename, lonlat1, lonlat2)
-                xy1 = lonlat2xyr(lonlat1, reverse_transform, proj)
-                xy2 = lonlat2xyr(lonlat2, reverse_transform, proj)
-                xmin = max(0, min(xy1[0], xy2[0]) - edge)
-                xmax = min(width-1, max(xy1[0], xy2[0]) + edge)
-                ymin = max(0, min(xy1[1], xy2[1]) - edge)
-                ymax = min(height-1, max(xy1[1], xy2[1]) + edge)
-                rgba[ymin:ymax,xmin:xmax,3] = 0
-                #print("BOX", lonlat1, lonlat2, xy1, xy2, xmin, xmax, ymin, ymax)
-                for m in range(0, margin):
-                    f = m/margin
-                    rgba[max(0,ymin-m),max(xmin-m,0):min(xmax+m,width-1),3] = f * rgba[max(0,ymin-m),max(xmin-m,0):min(xmax+m,width-1),3]
-                    rgba[max(0,ymin-m):min(ymax+m,height-1),min(xmax+m,width-1),3] = f * rgba[max(0,ymin-m):min(ymax+m,height-1),min(xmax+m,width-1),3]
-                    rgba[min(ymax+m,height-1),max(xmin-m,0):min(xmax+m,width-1),3] = f * rgba[min(ymax+m,height-1),max(xmin-m,0):min(xmax+m,width-1),3]
-            else:
-                print("warning: ignoring", args)
-
-        if False:
-            print("writing", filename + ".png")
-            cv2.imwrite(filename + ".png", rgba, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
-            print("done", filename + ".png")
+        if True:
+            cf.save(filename)
 
 
         xy = level.lonlat2xy((lon_min, lat_max))
@@ -533,8 +573,10 @@ if __name__ == '__main__':
     # process sec charts
     if True:
         if True and areas is None:
-            print(f"removing {os.path.join(settings.tiles_dir, 'sec')}")
-            shutil.rmtree(os.path.join(settings.tiles_dir, 'sec'))
+            sec_dir = os.path.join(settings.tiles_dir, 'sec')
+            print(f"removing {sec_dir}")
+            if os.path.exists(sec_dir):
+                shutil.rmtree(sec_dir)
 
         chart_list = []
         if True:
@@ -565,8 +607,10 @@ if __name__ == '__main__':
         toplevel = 9
 
         if False and areas is None:
-            print(f"removing {os.path.join(settings.tiles_dir, 'tac')}")
-            shutil.rmtree(os.path.join(settings.tiles_dir, 'tac'))
+            tac_dir = os.path.join(settings.tiles_dir, 'tac')
+            print(f"removing {tac_dir}")
+            if os.path.exists(tac_dir):
+                shutil.rmtree(tac_dir)
 
         chart_list = []
         if True:
