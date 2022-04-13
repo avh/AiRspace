@@ -434,7 +434,6 @@ def process_chart(inq, outq, level, overwrite):
             print(f"{cf} failed")
             traceback.print_exc()
 
-
     outq.put(touched)
 
 def process_charts(levels, zoom, charts, overwrite=False, max_workers=max_chart_workers):
@@ -596,7 +595,7 @@ if __name__ == '__main__':
 
     # process tac charts
     if True:
-        toplevel = 9
+        toplevel = 0
 
         if True and areas is None:
             tac_dir = os.path.join(settings.tiles_dir, 'tac')
@@ -632,7 +631,7 @@ if __name__ == '__main__':
 
     # process FLY charts
     if True:
-        toplevel = 9
+        toplevel = 0
 
         if True and areas is None:
             fly_dir = os.path.join(settings.tiles_dir, 'fly')

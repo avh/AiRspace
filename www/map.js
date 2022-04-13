@@ -30,7 +30,7 @@ sec_layer = new Cesium.UrlTemplateImageryProvider({
     url : 'tiles/sec/{z}/{x}/{y}.png',
     credit : 'Artfahrt Inc',
     hasAlphaChannel: true,
-    maximumLevel: 12,
+    maximumLevel: 13,
 });
 viewer.scene.imageryLayers.addImageryProvider(sec_layer);
 
@@ -39,7 +39,7 @@ tac_layer = new Cesium.UrlTemplateImageryProvider({
     credit : 'Artfahrt Inc',
     hasAlphaChannel: true,
     //minimumLevel: 8,
-    maximumLevel: 12,
+    maximumLevel: 13,
 });
 viewer.scene.imageryLayers.addImageryProvider(tac_layer);
 
@@ -48,7 +48,7 @@ fly_layer = new Cesium.UrlTemplateImageryProvider({
     credit : 'Artfahrt Inc',
     hasAlphaChannel: true,
     //minimumLevel: 8,
-    maximumLevel: 12,
+    maximumLevel: 13,
 });
 viewer.scene.imageryLayers.addImageryProvider(fly_layer);
 

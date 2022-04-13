@@ -127,7 +127,7 @@ chart_notes = {
     ],
     "Bethel SEC": [
         ('l-lon', -173),
-        ('b-fix', -173, 59.758),
+        ('b-fix', -173, 59.583),
     ],
     "Billings SEC": [
         ('l-lon', -109),
@@ -585,6 +585,9 @@ chart_notes = {
     ],
     "New York FLY": [
         ('bounds', -74.89, 40.216, -72.66, 41.266)
+    ],
+    "New York TAC VFR Planning Charts": [
+        # REMIND
     ],
     "Philadelphia FLY": [
         ('bounds', -75.893, 39.48, -74.51, 40.5)
