@@ -22,7 +22,7 @@ earth_circumference = epsg3857(180, 0)[0] - epsg3857(-180, 0)[0]
 # MapLevel - represents one scale level tiles
 #
 class MapLevel:
-    def __init__(self, type, zoom, proj=epsg3857):
+    def __init__(self, base, type, zoom, proj=epsg3857):
         self.type = type
         self.zoom = zoom
         self.proj = proj
@@ -31,7 +31,7 @@ class MapLevel:
         self.zoom_out = None
         self.zoom_in = None
 
-        self.dir = os.path.join(os.path.join(settings.tiles_dir, type), f"{self.zoom}")
+        self.dir = os.path.join(os.path.join(base, type), f"{self.zoom}")
         os.makedirs(self.dir, exist_ok=True)
 
         self.meters_per_pixel = earth_circumference / self.map_size
@@ -68,8 +68,8 @@ class MapLevel:
         kb = 50
         return f"MapLevel(zoom={self.zoom}, width={self.map_size}, tiles={self.tile_count}x{self.tile_count}, used={used}/{total}, {100*used/total:.2f}%, {used*kb/(1024*1024):.1f}GB, m/pix={self.meters_per_pixel})"
 
-def make_levels(type, max_zoom):
-    levels = [MapLevel(type, zoom) for zoom in range(0, max_zoom+1)]
+def make_levels(base, type, max_zoom):
+    levels = [MapLevel(base, type, zoom) for zoom in range(0, max_zoom+1)]
     for zoom in range(0, len(levels)-1):
         levels[zoom].zoom_in = levels[zoom+1]
         levels[zoom+1].zoom_out = levels[zoom]
@@ -561,7 +561,7 @@ if __name__ == '__main__':
         print(f"processing: {areas}")
 
     # process SEC charts
-    if False:
+    if True:
         if True and areas is None:
             sec_dir = os.path.join(settings.tiles_dir, 'sec')
             print(f"removing {sec_dir}")
@@ -585,7 +585,7 @@ if __name__ == '__main__':
                 print(chart)
 
         if True:
-            levels = make_levels('sec', max_zoom)
+            levels = make_levels(settings.tiles_dir, 'sec', max_zoom)
             for zoom in range(len(levels)-1, -1, -1):
                 if areas is None:
                     levels[zoom].load()
@@ -595,7 +595,7 @@ if __name__ == '__main__':
 
 
     # process TAC charts
-    if False:
+    if True:
         toplevel = 0
 
         if True and areas is None:
@@ -621,7 +621,7 @@ if __name__ == '__main__':
                 print(chart)
 
         if True:
-            levels = make_levels('tac', max_zoom)
+            levels = make_levels(settings.tiles_dir, 'tac', max_zoom)
             for zoom in range(len(levels)-1, toplevel-1, -1):
                 if areas is None:
                     levels[zoom].load()
@@ -630,7 +630,7 @@ if __name__ == '__main__':
                 scale_tiles(levels, zoom, zoom-1)
 
     # process FLY charts
-    if False:
+    if True:
         toplevel = 0
 
         if True and areas is None:
@@ -656,7 +656,7 @@ if __name__ == '__main__':
                 print(chart)
 
         if True:
-            levels = make_levels('fly', max_zoom)
+            levels = make_levels(settings.tiles_dir, 'fly', max_zoom)
             for zoom in range(len(levels)-1, toplevel-1, -1):
                 if areas is None:
                     levels[zoom].load()
@@ -688,7 +688,7 @@ if __name__ == '__main__':
                 print(chart)
 
         if True:
-            levels = make_levels('ifr_low', max_zoom)
+            levels = make_levels(settings.tiles_dir, 'ifr_low', max_zoom)
             for zoom in range(len(levels)-1, toplevel-1, -1):
                 if areas is None:
                     levels[zoom].load()
@@ -720,7 +720,7 @@ if __name__ == '__main__':
                 print(chart)
 
         if True:
-            levels = make_levels('ifr_high', max_zoom)
+            levels = make_levels(settings.tiles_dir, 'ifr_high', max_zoom)
             for zoom in range(len(levels)-1, toplevel-1, -1):
                 if areas is None:
                     levels[zoom].load()

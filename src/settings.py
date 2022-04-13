@@ -684,6 +684,12 @@ chart_notes = {
     "ENR_L33": [],
     "ENR_L14": [],
     "ENR_L19": [],
+    "ENR_CA03": [],
+    "ENR_CL03": [],
+    "ENR_CL05": [],
+    "ENR_CL06": [],
+    "ENR_CL02": [],
+    "ENR_CL01": [],
 
     # ----------- IFR high charts ------------
 
@@ -705,4 +711,7 @@ chart_notes = {
     "ENR_H12": [],
     "ENR_H09": [],
     "ENR_H03": [],
+    "ENR_CH01_INSET": [],
+    "ENR_CH01": [],
+    "ENR_CH02": [],
 }

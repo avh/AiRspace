@@ -62,11 +62,17 @@ if __name__ == '__main__':
         ifr_high_list.clear()
         ifr_area_list = settings.db.hash_table("ifr_area_list")
         ifr_area_list.clear()
+        ifr_gulf_list = settings.db.hash_table("ifr_gulf_list")
+        ifr_gulf_list.clear()
 
         update_chart_list(html, 'lowsHighsAreas', 'ifr', ifr_list)
+        update_chart_list(html, 'caribbean', 'ifr', ifr_list)
+        update_chart_list(html, 'gulf', 'ifr', ifr_list)
         for s in ifr_list.all():
             name = s['name']
-            if name.startswith("EL"):
+            if name.startswith("ELCBA"):
+                ifr_area_list.set(name, s)
+            elif name.startswith("EL"):
                 ifr_low_list.set(name, s)
             elif name.startswith("EH"):
                 ifr_high_list.set(name, s)
@@ -74,9 +80,12 @@ if __name__ == '__main__':
                 ifr_high_list.set(name, s)
             elif name.startswith("Area"):
                 ifr_area_list.set(name, s)
+            elif name.startswith("GOM"):
+                ifr_gulf_list.set(name, s)
 
         print(f"{ifr_low_list.count():4} IFR low charts")
         print(f"{ifr_high_list.count():4} IFR high charts")
         print(f"{ifr_area_list.count():4} IFR area charts")
+        print(f"{ifr_gulf_list.count():4} IFR gulf charts")
 
     print(f"done in {util.time_str(tm)}")
