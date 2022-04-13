@@ -56,10 +56,14 @@ if __name__ == '__main__':
 
         ifr_list = settings.db.hash_table("ifr_list")
         ifr_list.clear()
-        update_chart_list(html, 'lowsHighsAreas', 'ifr', ifr_list)
         ifr_low_list = settings.db.hash_table("ifr_low_list")
+        ifr_low_list.clear()
         ifr_high_list = settings.db.hash_table("ifr_high_list")
+        ifr_high_list.clear()
         ifr_area_list = settings.db.hash_table("ifr_area_list")
+        ifr_area_list.clear()
+
+        update_chart_list(html, 'lowsHighsAreas', 'ifr', ifr_list)
         for s in ifr_list.all():
             name = s['name']
             if name.startswith("EL"):

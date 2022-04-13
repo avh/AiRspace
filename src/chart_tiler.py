@@ -532,13 +532,14 @@ def scale_tiles(levels, src_zoom, dst_zoom, max_workers=max_scale_workers):
 #
 # Decide which chart to process.
 #
-def list_charts_for_tiling(chart_list, chart, kind):
+def list_charts_for_tiling(chart_list, chart, kind=None):
     for chart_file in glob.glob(os.path.join(chart['path'], "*.tif")):
         filename = os.path.splitext(os.path.basename(chart_file))[0]
-        if f" {kind} " in filename:
-            filename = filename[0:filename.rindex(' ')]
-        if f" {kind}" not in filename:
-            continue
+        if kind is not None:
+            if f" {kind} " in filename:
+                filename = filename[0:filename.rindex(' ')]
+            if f" {kind}" not in filename:
+                continue
         if filename not in settings.chart_notes:
             print(f"warning: no settings for {filename}, skipping")
             continue
@@ -559,8 +560,8 @@ if __name__ == '__main__':
     if areas is not None:
         print(f"processing: {areas}")
 
-    # process sec charts
-    if True:
+    # process SEC charts
+    if False:
         if True and areas is None:
             sec_dir = os.path.join(settings.tiles_dir, 'sec')
             print(f"removing {sec_dir}")
@@ -593,8 +594,8 @@ if __name__ == '__main__':
                 scale_tiles(levels, zoom, zoom-1)
 
 
-    # process tac charts
-    if True:
+    # process TAC charts
+    if False:
         toplevel = 0
 
         if True and areas is None:
@@ -607,11 +608,10 @@ if __name__ == '__main__':
         if True:
             for chart in settings.db.hash_table("tac_list").all():
                 if areas is None or chart['name'] in areas:
-                    if areas is None or chart['name'] in areas:
-                        if chart['name'] == 'Grand Canyon':
-                            list_charts_for_tiling(chart_list, chart, 'General Aviation')
-                        else:
-                            list_charts_for_tiling(chart_list, chart, 'TAC')
+                    if chart['name'] == 'Grand Canyon':
+                        list_charts_for_tiling(chart_list, chart, 'General Aviation')
+                    else:
+                        list_charts_for_tiling(chart_list, chart, 'TAC')
 
         chart_list = sorted(chart_list, key=lambda x: x.name)
 
@@ -630,7 +630,7 @@ if __name__ == '__main__':
                 scale_tiles(levels, zoom, zoom-1)
 
     # process FLY charts
-    if True:
+    if False:
         toplevel = 0
 
         if True and areas is None:
@@ -643,11 +643,10 @@ if __name__ == '__main__':
         if True:
             for chart in settings.db.hash_table("tac_list").all():
                 if areas is None or chart['name'] in areas:
-                    if areas is None or chart['name'] in areas:
-                        if chart['name'] == 'Grand Canyon':
-                            list_charts_for_tiling(chart_list, chart, 'Air Tour Operators')
-                        else:
-                            list_charts_for_tiling(chart_list, chart, 'FLY')
+                    if chart['name'] == 'Grand Canyon':
+                        list_charts_for_tiling(chart_list, chart, 'Air Tour Operators')
+                    else:
+                        list_charts_for_tiling(chart_list, chart, 'FLY')
 
         chart_list = sorted(chart_list, key=lambda x: x.name)
 
@@ -664,6 +663,71 @@ if __name__ == '__main__':
                 print(levels[zoom])
                 process_charts(levels, zoom, [chart for chart in chart_list if chart.zoom == zoom], areas is not None)
                 scale_tiles(levels, zoom, zoom-1)
+
+    # process IFR low charts
+    if True:
+        toplevel = 0
+
+        if True and areas is None:
+            ifr_low_dir = os.path.join(settings.tiles_dir, 'ifr_low')
+            print(f"removing {ifr_low_dir}")
+            if os.path.exists(ifr_low_dir):
+                shutil.rmtree(ifr_low_dir)
+
+        chart_list = []
+        if True:
+            for chart in settings.db.hash_table("ifr_low_list").all():
+                if areas is None or chart['name'] in areas:
+                    list_charts_for_tiling(chart_list, chart)
+
+        chart_list = sorted(chart_list, key=lambda x: x.name)
+
+        if True:
+            print(f"{len(chart_list)} IFR low charts")
+            for chart in chart_list:
+                print(chart)
+
+        if True:
+            levels = make_levels('ifr_low', max_zoom)
+            for zoom in range(len(levels)-1, toplevel-1, -1):
+                if areas is None:
+                    levels[zoom].load()
+                print(levels[zoom])
+                process_charts(levels, zoom, [chart for chart in chart_list if chart.zoom == zoom], areas is not None)
+                scale_tiles(levels, zoom, zoom-1)
+
+    # process IFR high charts
+    if True:
+        toplevel = 0
+
+        if True and areas is None:
+            ifr_high_dir = os.path.join(settings.tiles_dir, 'ifr_high')
+            print(f"removing {ifr_high_dir}")
+            if os.path.exists(ifr_high_dir):
+                shutil.rmtree(ifr_high_dir)
+
+        chart_list = []
+        if True:
+            for chart in settings.db.hash_table("ifr_high_list").all():
+                if areas is None or chart['name'] in areas:
+                    list_charts_for_tiling(chart_list, chart)
+
+        chart_list = sorted(chart_list, key=lambda x: x.name)
+
+        if True:
+            print(f"{len(chart_list)} IFR high charts")
+            for chart in chart_list:
+                print(chart)
+
+        if True:
+            levels = make_levels('ifr_high', max_zoom)
+            for zoom in range(len(levels)-1, toplevel-1, -1):
+                if areas is None:
+                    levels[zoom].load()
+                print(levels[zoom])
+                process_charts(levels, zoom, [chart for chart in chart_list if chart.zoom == zoom], areas is not None)
+                scale_tiles(levels, zoom, zoom-1)
+
 
     tm = math.floor(time.time() - tm)
     hrs = tm // 3600
