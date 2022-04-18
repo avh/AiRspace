@@ -1,56 +1,45 @@
 # charts Makefile
 TOP=.
+PIP3=pip3
+FLAKE8=flake8
+PYTHON=/usr/local/bin/python3
 
 all: update chart_tiler airspace_tiler
 
-update: chart_list_update chart_data_download chart_shapes_download
+update: chart_list_update chart_data_download airport_data_download chart_shapes_download
 
 chart_list_update: flake8
-	python3 src/chart_list_update.py
+	$(PYTHON) src/chart_list_update.py
 
 chart_data_download: flake8
-	python3 src/chart_data_download.py
+	$(PYTHON) src/chart_data_download.py
 
 chart_shapes_download: flake8
-	python3 src/chart_shapes_download.py
+	$(PYTHON) src/chart_shapes_download.py
 
 boundary_shapes_download: flake8
-	python3 src/boundary_shapes_download.py
+	$(PYTHON) src/boundary_shapes_download.py
 
 airport_data_download: flake8
-	python3 src/airport_data_download.py
-
+	$(PYTHON) src/airport_data_download.py
 
 chart_tiler: flake8
-	python3 src/chart_tiler.py
+	$(PYTHON) src/chart_tiler.py
 
 airspace_tiler: flake8
-	python3 src/airspace_tiler.py
+	$(PYTHON) src/airspace_tiler.py
+
+airspace_shapes: flake8
+	$(PYTHON) src/airspace_shapes.py
 
 airspace_combiner: flake8
-	python3 src/combiner.py
+	$(PYTHON) src/combiner.py
 
 flake8:
-	flake8 --config $(TOP)/flake8.config src/*.py
-
+	$(FLAKE8) --config $(TOP)/flake8.config src/*.py
 
 install_packages:
-	pip3 install pyproj
-	pip3 install panda3d
-	pip3 install pyshp
-	pip3 install affine
-	pip3 install shapely
-	pip3 install lxml
-	pip3 install pillow
-	pip3 install redis
-	pip3 install numpy
-	pip3 install tqdm
-	pip3 install filelock
-	pip3 install requests
-	pip3 install python-dateutil
-	pip3 install gdal
-	pip3 install opencv-python
-	pip3 install scipy
+	$(PIP3) install -r requirements.txt
 
 .FORCE:
 

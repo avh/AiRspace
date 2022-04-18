@@ -45,10 +45,10 @@ class Point:
     def __init__(self, lon=0, lat=0, regions=None, angle=0):
         Point.count += 1
         self.index = Point.count
-        self.lon = round(lon * Point.accuracy) / Point.accuracy
-        self.lat = round(lat * Point.accuracy) / Point.accuracy
-        #self.lon = lon
-        #self.lat = lat
+        #self.lon = round(lon * Point.accuracy) / Point.accuracy
+        #self.lat = round(lat * Point.accuracy) / Point.accuracy
+        self.lon = lon
+        self.lat = lat
         self.regions = regions or set()
         self.group = None
         self.angle = angle
@@ -155,16 +155,24 @@ class QuadTree:
         d = 2*math.atan2(dist, settings.earth_radius)*util.r2d
         bestpt = None
         bestdist = util.FAR
+        secondbest = None
+        secondbestdist = None
         for pt in self.all_bbox(point.lon - d, point.lat + d, point.lon + d, point.lat - d):
             if pt.regions.isdisjoint(point.regions):
                 dp = pt.distance(point)
                 if dp < bestdist:
+                    secondbest = bestpt
+                    secondbestdist = bestdist
                     bestpt = pt
                     bestdist = dp
 
         if point is bestpt:
             return point
         if bestdist <= dist:
+            if bestpt.index == 727 or bestpt.index == 3880:
+                print(f"matching {point}, {bestpt}, {bestdist}")
+                if secondbest is not None:
+                    print(f"SECOND {point}, {secondbest}, {secondbestdist}")
             # group these points
             if not bestpt.is_grouped():
                 bestpt.group = [bestpt, point]

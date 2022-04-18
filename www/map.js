@@ -21,9 +21,12 @@ viewer.camera.changed.addEventListener(function() {
     }
 });
 
-if (params.get('debug') != null) {
+function debug() {
     viewer.extend(Cesium.viewerCesium3DTilesInspectorMixin);
     var inspectorViewModel = viewer.cesium3DTilesInspector.viewModel;
+}
+if (params.get('debug') != null) {
+    debug();
 }
 
 sec_layer = new Cesium.UrlTemplateImageryProvider({

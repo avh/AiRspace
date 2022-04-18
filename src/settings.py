@@ -54,8 +54,8 @@ earth_radius = earth_circumference/(2*math.pi)
 #
 
 defaultGeometricError = {
-    'A': 20000,
-    'B': 18000,
+    'A': 50000,
+    'B': 25000,
     'C': 16000,
     'D': 14000,
     'E': 12000,
@@ -79,6 +79,25 @@ defaultHeight = {
     'E4': 40000,
     'E5': 40000,
     'G': 40000,
+}
+
+#
+# Shape parameters
+#
+
+min_corner_angle = 15
+min_corner_angle_override = {
+}
+min_point_distance = 25
+min_point_distance_override = {
+}
+max_line_distance = 50
+max_line_distance_override = {
+    'KMRY-C': 250,
+    'KATL-B': 250,
+}
+min_line_length = 75
+min_line_length_override = {
 }
 
 #

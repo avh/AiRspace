@@ -96,15 +96,13 @@ def process_chart_shapes():
         id = f.record[id_index]
         ident = f.record[ident_index]
         type_code = f.record[type_code_index]
+        type_class = type_code[6:]
         if len(id) == 0:
             id = f"A-{shape_name(ident)}"
-            shapes = area_shapes
         elif len(id) == 3:
-            id = f"K{id}-{type_code[6:]}"
-            shapes = airport_shapes
+            id = f"K{id}-{type_class}"
         elif len(id) == 4:
-            id = f"{id}-{type_code[6:]}"
-            shapes = airport_shapes
+            id = f"{id}-{type_class}"
         else:
             assert False, f"bad id: {id}"
 
@@ -112,7 +110,8 @@ def process_chart_shapes():
             print(f"{id}: shape not closed")
             continue
 
-        # create airspace (if needed)
+        # create an airport or area (if needed)
+        shapes = airport_shapes if type_class in ('B', 'C', 'D', 'E2', 'E3', 'E4') else area_shapes
         if id not in shapes:
             shapes[id] = {
                 'id': id,

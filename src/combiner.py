@@ -13,8 +13,6 @@ def bounds_union(b1, b2):
     )
 
 def save_area(dir, id, flyto, airports):
-    print(f"{dir}/{id}, {len(airports)}")
-
     clazz = 'E5'
     for airport in airports:
         if airport['extras']['class'] < clazz:

@@ -1,0 +1,17 @@
+pyproj
+panda3d
+pyshp
+affine
+shapely
+lxml
+pillow
+redis
+numpy
+tqdm
+filelock
+requests
+python-dateutil
+gdal
+opencv-python
+scipy
+openpyxl

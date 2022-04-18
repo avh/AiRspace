@@ -140,7 +140,10 @@ def enumerate_triples(points):
         p1 = p2
 
 def time_str(tm):
-    tm = math.floor(time.time() - tm)
+    tm = time.time() - tm
+    if tm < 60:
+        return f"{tm:.3f}s"
+    tm = math.floor(tm)
     hrs = tm // 3600
     min = (tm // 60) % 60
     sec = (tm % 60)
@@ -183,7 +186,6 @@ def polygon_list(poly):
 #
 
 def polygon_intersection(p1, p2):
-    #return [p1], [], [p2]
     return polygon_list(p1.difference(p2)), polygon_list(p1.intersection(p2)), polygon_list(p2.difference(p1))
 #
 # Download a file

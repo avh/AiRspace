@@ -9,6 +9,7 @@ class Tiler:
         self.terrain_exaggeration = terrain_exaggeration
         self.ecef_proj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
         self.lla_proj = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+        self.transformer = pyproj.Transformer.from_proj(self.lla_proj, self.ecef_proj)
         self.region = None
         if not os.path.exists(dst):
             os.mkdir(dst)
@@ -27,7 +28,9 @@ class Tiler:
 
         if lla[2] < -1000:
             raise Exception("bad altitude: " + lla)
-        return pyproj.transform(self.lla_proj, self.ecef_proj, lla[0], lla[1], lla[2]*self.terrain_exaggeration, radians=False)
+        #return (lla[0], lla[1], lla[2])
+        #return pyproj.transform(self.lla_proj, self.ecef_proj, lla[0], lla[1], lla[2]*self.terrain_exaggeration, radians=False)
+        return self.transformer.transform(lla[0], lla[1], lla[2]*self.terrain_exaggeration, radians=False)
 
     # convert x,y,z to lon,lat,alt
     def xyz2lla(self, xyz):
