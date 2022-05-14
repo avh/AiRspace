@@ -15,3 +15,4 @@ gdal
 opencv-python
 scipy
 openpyxl
+pyside6

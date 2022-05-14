@@ -34,6 +34,16 @@ def distance_line_xy(l1, l2, p):
 
     return (abs(b*p[0] - a*p[1] + l1[1]*l2[0] - l1[0]*l2[1]) / math.sqrt(d))
 
+def angle_lines_old(p1, p2, q1, q2):
+    p = p2[0] - p1[0], p2[1] - p1[1]
+    q = q2[0] - q1[0], q2[1] - q1[1]
+    dp = math.sqrt(p[0]**2 + p[1]**2)
+    dq = math.sqrt(q[0]**2 + q[1]**2)
+    return math.acos((p[0]/dp)*(q[0]/dq) + (p[1]/dp)*(q[1]/dq)) * r2d
+
+def angle_lines(p1, p2, p3):
+    return math.fmod((360+180)-(math.atan2(p3[1] - p2[1], p3[0] - p2[0]) - math.atan2(p2[1] - p1[1], p2[0] - p1[0])) * r2d, 360) - 180
+
 def nearest_point(points, target):
     bestp = None
     bestd = MAXINT
@@ -43,6 +53,37 @@ def nearest_point(points, target):
             bestp = p
             bestd = d
     return bestp
+
+def enumerate_by_angle(points, max_angle=35, max_deviation=1):
+    i = 0
+    n = len(points)
+    p1 = points[-1]
+    p2 = points[0]
+    asum = 0
+    acnt = 0
+    pts = []
+
+    while i < n+1:
+        p0 = p1
+        p1 = p2
+        p2 = points[(i+1) % n]
+        a = angle_lines(p0, p1, p2)
+        if abs(a) < max_angle and acnt > 0 and abs(a - asum/acnt) < max_deviation:
+            pts.append(p1)
+            asum += a
+            acnt += 1
+        else:
+            if len(pts) > 0:
+                print("BAILING", a, asum/acnt)
+                yield asum/acnt, pts + [p1]
+            pts = [p1]
+            asum = a
+            acnt = 1
+        i += 1
+    if len(pts) > 0:
+        print("BAILING", a, asum/acnt)
+        yield asum/acnt, pts + [p1]
+
 
 def bbox_all():
     return (MININT, MININT, MAXINT, MAXINT)
@@ -161,7 +202,7 @@ def polygon_list(poly):
 
     if isinstance(poly, shapely.geometry.Polygon):
         if len(poly.interiors) == 0:
-            return [poly]
+            return [poly.buffer(0)]
         assert len(poly.interiors) == 1, f"multiple interior polygons {len(poly.interiors)}"
 
         cy = poly.interiors[0].centroid.y
@@ -179,7 +220,6 @@ def polygon_list(poly):
 
     assert False, f"unexpected polygon type: {type(poly)}"
 
-
 #
 # Intersect two polygons (p1, p1), resulting in
 # three sets of polygons ((p1 - p2), (p1 & p2), (p2 - p1))
@@ -187,6 +227,7 @@ def polygon_list(poly):
 
 def polygon_intersection(p1, p2):
     return polygon_list(p1.difference(p2)), polygon_list(p1.intersection(p2)), polygon_list(p2.difference(p1))
+
 #
 # Download a file
 #

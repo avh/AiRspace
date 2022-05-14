@@ -20,8 +20,13 @@ def weighted_centroid(points):
     return Point(lon/n, lat/n), a
 
 def bearing(p1, p2):
-    x = math.cos(p2.lat) * math.sin(p2.lon - p1.lon)
-    y = math.cos(p1.lat) * math.sin(p2.lat) - math.sin(p1.lat) * math.cos(p2.lat) * math.cos(p2.lon - p1.lon)
+    #x = math.cos(p2.lat) * math.sin(p2.lon - p1.lon)
+    #y = math.cos(p1.lat) * math.sin(p2.lat) - math.sin(p1.lat) * math.cos(p2.lat) * math.cos(p2.lon - p1.lon)
+    #return math.fmod(math.atan2(x, y) * util.r2d + 360, 360)n
+    lat1, lon1 = p1.lat * util.d2r, p1.lon * util.d2r
+    lat2, lon2 = p2.lat * util.d2r, p2.lon * util.d2r
+    y = math.sin(lon2 - lon1) * math.cos(lat1)
+    x = math.cos(lat1)*math.sin(lat2) - math.sin(lat1)*math.cos(lat2)*math.cos(lon2 - lon1)
     return math.fmod(math.atan2(x, y) * util.r2d + 360, 360)
 
 def angle(p0, p1, p2):
@@ -70,7 +75,7 @@ class Point:
     def distance_line(self, l1, l2):
         dx = l2.lon - l1.lon
         dy = l2.lat - l1.lat
-        det = det = dx*dx + dy*dy
+        det = dx*dx + dy*dy
         if det == 0:
             return self.distance(l1)
         a = (dy*(self.lat - l1.lat) + dx*(self.lon - l1.lon))/det
@@ -149,30 +154,22 @@ class QuadTree:
         else:
             assert False, f"point not found: {pt}"
 
-    def insert_grouped(self, point, dist=25):
+    def insert_grouped(self, point, dist=25, allpoints=False):
         assert not point.is_grouped()
         assert len(point.regions) <= 1
         d = 2*math.atan2(dist, settings.earth_radius)*util.r2d
         bestpt = None
         bestdist = util.FAR
-        secondbest = None
-        secondbestdist = None
         for pt in self.all_bbox(point.lon - d, point.lat + d, point.lon + d, point.lat - d):
-            if pt.regions.isdisjoint(point.regions):
+            if allpoints or pt.regions.isdisjoint(point.regions):
                 dp = pt.distance(point)
                 if dp < bestdist:
-                    secondbest = bestpt
-                    secondbestdist = bestdist
                     bestpt = pt
                     bestdist = dp
 
         if point is bestpt:
             return point
         if bestdist <= dist:
-            if bestpt.index == 727 or bestpt.index == 3880:
-                print(f"matching {point}, {bestpt}, {bestdist}")
-                if secondbest is not None:
-                    print(f"SECOND {point}, {secondbest}, {secondbestdist}")
             # group these points
             if not bestpt.is_grouped():
                 bestpt.group = [bestpt, point]

@@ -15,7 +15,7 @@ t5 = tiler.Tiler(x5_dir, 5)
 add_floors = True
 add_ceilings = False
 add_borders = True
-add_poles = True
+add_poles = False
 add_verticals = True
 remove_interior_walls = True
 max_workers = 8
@@ -74,6 +74,7 @@ class Airspace:
     def __init__(self, table, id):
         self.id = id
         self.data = table.get(id)
+        self.bbox = self.data['bbox']
         self.type_class = self.data['class']
         self.regions = []
         global shp
@@ -117,17 +118,20 @@ class Airspace:
                         if util.not_empty(p1):
                             for p in p1:
                                 r = Region(self, r1.lower, r1.upper, [(c[0], c[1]) for c in p.exterior.coords])
+                                r.cleanup_returns()
                                 r.cleanup_points(settings.min_corner_angle, settings.min_line_length, settings.min_line_length/2)
                                 r.merge_points(qtree, min_point_distance)
                                 self.regions.append(r)
                         for p in p2:
                             r = Region(self, min(r1.lower, r2.lower), max(r1.upper, r2.upper), [(c[0], c[1]) for c in p.exterior.coords])
+                            r.cleanup_returns()
                             r.cleanup_points(settings.min_corner_angle, settings.min_line_length, settings.min_line_length/2)
                             r.merge_points(qtree, min_point_distance)
                             self.regions.append(r)
                         if util.not_empty(p3):
                             for p in p3:
                                 r = Region(self, r2.lower, r2.upper, [(c[0], c[1]) for c in p.exterior.coords])
+                                r.cleanup_returns()
                                 r.cleanup_points(settings.min_corner_angle, settings.min_line_length, settings.min_line_length/2)
                                 r.merge_points(qtree, min_point_distance)
                                 self.regions.append(r)
@@ -168,6 +172,7 @@ class Airspace:
         geometricError = settings.defaultGeometricError[self.type_class]
         t1.save_tile(self.id, g1, geometricError, extras)
         t5.save_tile(self.id, g5, geometricError, extras)
+        print(f"saved {self}")
 
     def dump(self, pts=True):
         print(self)
@@ -237,6 +242,21 @@ class Region:
 
         self.points = self.points[i:] + self.points[:i]
         self.polygon = None
+
+    def cleanup_returns(self):
+        count = 0
+        while True:
+            updated = False
+            for i, (p0, p1, p2) in enumerate(util.enumerate_triples(self.points)):
+                if p0 == p2 or p0.distance_line(p1, p2) < 1.0:
+                    del self.points[i]
+                    count += 1
+                    updated = True
+                    break
+            if not updated:
+                break
+        if count > 0:
+            print(f"removed {count} return points from {self}")
 
     #
     # Delete duplicate points.
@@ -477,8 +497,8 @@ class Region:
 
 
 def group_airports():
-    #clusters = [(set([a['id']]),a['bbox']) for a in airport_shapes_table.all() if a['id'].endswith('-B')]
-    clusters = [(set([a['id']]),a['bbox']) for a in airport_shapes_table.all() if a['id']]
+    clusters = [(set([a['id']]),a['bbox']) for a in airport_shapes_table.all() if a['id'].endswith('-B')]
+    #clusters = [(set([a['id']]),a['bbox']) for a in airport_shapes_table.all() if a['id']]
 
     i = 0
     while i < len(clusters):
@@ -513,11 +533,9 @@ def process_cluster(q, table_name):
             for airport in airports:
                 print("processing", airport)
                 tm = time.time()
-                print("cleanup", airport)
                 airport.cleanup()
-                print("save", airport)
                 airport.save()
-                print(f"saved {airport.id} in {util.time_str(tm)}")
+                print(f"processed {airport.id} in {util.time_str(tm)}")
         except:
             print(f"exception: cluster failed, {airports}")
             traceback.print_exc()

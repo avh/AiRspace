@@ -35,11 +35,17 @@ airspace_shapes: flake8
 airspace_combiner: flake8
 	$(PYTHON) src/combiner.py
 
+airspace_edit: flake8
+	$(PYTHON) src/airspace_edit.py
+
 flake8:
 	$(FLAKE8) --config $(TOP)/flake8.config src/*.py
 
 install_packages:
 	$(PIP3) install -r requirements.txt
+
+kill:
+	killall -9 Python
 
 .FORCE:
 
