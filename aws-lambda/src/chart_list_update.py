@@ -2,67 +2,60 @@
 
 import os, requests, lxml.html, lxml.etree
 from dateutil import parser
-
-faa_vfr_chart_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/"
-faa_ifr_chart_url = "https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/ifr/"
+from common.datastore import DataStore
+import settings
 
 #
 # Scan the FAA digital products page for the current list of SEC and TAC charts.
 #
-def update_chart_list(html, tag, kind, table):
+def update_chart_list(table, html, tag, kind):
+    count = 0
     for tr in html.xpath(f".//div[@id='{tag}']/table/tbody/tr"):
         name = ''.join(tr[0].text).strip()
-        date = parser.parse(''.join(tr[1].text)).strftime('%y-%m-%d')
-        next = parser.parse(''.join(tr[2].text)).strftime('%y-%m-%d')
+        date = parser.parse(tr[1].text).strftime('%y-%m-%d')
+        next = parser.parse(tr[2].text if tr[2].text else tr[2][0].text).strftime('%y-%m-%d') 
         href = tr[1].find(".//a").attrib["href"]
-        sec = {
-            'name': name,
-            'type': kind,
-            'date': date,
-            'next': next,
-            'href': href,
-            'path': "data/charts/" + date + '/' + os.path.splitext(os.path.basename(href))[0]
-        }
-        table[name] = sec
+        old = table[name]
+        if old is None or old['date'] != date:
+            table[name] = {
+                'name': name,
+                'type': kind,
+                'date': date,
+                'next': next,
+                'href': href,
+                'path': f"data/charts/{date}/{kind}/{os.path.splitext(os.path.basename(href))[0]}"
+            }
+            count += 1
+    return count
 
 def lambda_handler(event, context):
-    result = {}
+    db = DataStore()
+    table = db['chart_list']
+    #table.clear()
+    count = 0
 
     if True:
-        req = requests.get(url=faa_vfr_chart_url)
+        req = requests.get(url=settings.faa_vfr_chart_url)
         html = lxml.etree.HTML(req.text)
 
-        sec_list = {}
-        update_chart_list(html, 'sectional', 'sec', sec_list)
-        update_chart_list(html, 'caribbean', 'sec', sec_list)
+        count += update_chart_list(table, html, 'sectional', 'sec')
+        count += update_chart_list(table, html, 'caribbean', 'sec')
 
-        tac_list = {}
-        update_chart_list(html, 'terminalArea', 'tac', tac_list)
-        update_chart_list(html, 'grandCanyon', 'tac', tac_list)
+        count += update_chart_list(table, html, 'terminalArea', 'tac')
+        count += update_chart_list(table, html, 'grandCanyon', 'tac')
 
-        hel_list = {}
-        update_chart_list(html, 'helicopter', 'hel', hel_list)
-
-        pln_list = {}
-        update_chart_list(html, 'Planning', 'pln', pln_list)
-
-        result['VFR sectional charts'] = sec_list
-        result['VFR terminal area charts'] = tac_list
-        result['VFR helicopter charts'] = hel_list
-        result['VFR planning charts'] = pln_list
+        count += update_chart_list(table, html, 'helicopter', 'hel')
+        count += update_chart_list(table, html, 'Planning', 'pln')
 
     if True:
-        req = requests.get(url=faa_ifr_chart_url)
+        req = requests.get(url=settings.faa_ifr_chart_url)
         html = lxml.etree.HTML(req.text)
 
-        ifr_list = {}
+        count += update_chart_list(table, html, 'lowsHighsAreas', 'ifr')
+        count += update_chart_list(table, html, 'caribbean', 'ifr')
+        count += update_chart_list(table, html, 'gulf', 'ifr')
 
-        update_chart_list(html, 'lowsHighsAreas', 'ifr', ifr_list)
-        update_chart_list(html, 'caribbean', 'ifr', ifr_list)
-        update_chart_list(html, 'gulf', 'ifr', ifr_list)
+    return {'rows':len(table), 'updates':count}
 
-        result['IFR charts'] = ifr_list
-
-    return result
-
-
+if __name__ == '__main__':
+    print(lambda_handler(None, None))

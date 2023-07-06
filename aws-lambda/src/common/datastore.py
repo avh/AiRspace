@@ -1,6 +1,6 @@
 # (c)2023, Arthur van Hoff, Artfahrt Inc
 
-import boto3
+import boto3, botocore
 import json
 
 class DataStoreTable:
@@ -25,7 +25,10 @@ class DataStoreTable:
         assert response['ResponseMetadata']['HTTPStatusCode'] == 200
 
     def keys(self) -> iter:
-        response = self.db.scan(TableName=self.name, AttributesToGet=['key'])
+        try:
+            response = self.db.scan(TableName=self.name, AttributesToGet=['key'])
+        except botocore.errorfactory.ResourceNotFoundException:
+            return
         #print('scan', response)
         assert response['ResponseMetadata']['HTTPStatusCode'] == 200
         for item in response['Items']:
@@ -38,7 +41,10 @@ class DataStoreTable:
                 yield item['key']['S']
     
     def scan(self) -> iter:
-        response = self.db.scan(TableName=self.name)
+        try:
+            response = self.db.scan(TableName=self.name)
+        except botocore.errorfactory.ResourceNotFoundException:
+            return
         #print('scan', response)
         assert response['ResponseMetadata']['HTTPStatusCode'] == 200
         for item in response['Items']:
@@ -81,7 +87,7 @@ class DataStore:
 
 if __name__ == '__main__':
     ds = DataStore()
-    table = ds['test_table']
+    table = ds['test2_table']
     table.clear()
     table['test_key1'] = {'test':None}
     table['test_key2'] = {'foobar':123}
