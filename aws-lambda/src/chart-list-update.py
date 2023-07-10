@@ -3,7 +3,7 @@
 import os, requests, lxml.html, lxml.etree
 from dateutil import parser
 from common.datastore import DataStore
-import settings
+import common.settings as settings
 
 #
 # Scan the FAA digital products page for the current list of SEC and TAC charts.

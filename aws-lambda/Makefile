@@ -5,14 +5,19 @@ TMP=/tmp
 PKG=${TMP}/deployment_package.zip
 VERSION=v1
 
-chart-list-update:
-	rm -rf ${PKG} ${TMP}/func
-	mkdir -p ${TMP}/func ; cp -r src/common ${TMP}/func
-	cp src/chart_list_update.py ${TMP}/func/lambda_function.py
-	cd ${TMP}/func ; zip -qr ${PKG} .
-	aws lambda update-function-code --function-name chart-list-update --zip-file fileb://${PKG} > /dev/null
-	-aws lambda invoke --function-name chart-list-update ${TMP}/out.txt > /dev/null
+chart-list-update: src/chart-list-update.py
+	-aws lambda invoke --function-name chart-list-update ${TMP}/out.txt --output text
 	cat ${TMP}/out.txt
+
+deploy-www:
+	aws s3 sync www s3://airspace.artfahrt.com/www/${VERSION}/
+
+src/%.py: .FORCE
+	rm -rf ${TMP}/$*.zip ${TMP}/$*
+	mkdir -p ${TMP}/$* ; cp -r src/common ${TMP}/$*
+	cp src/$*.py ${TMP}/$*/lambda_function.py
+	cd ${TMP}/$* ; zip -qr ${TMP}/$*.zip .
+	aws lambda update-function-code --function-name $* --zip-file fileb://${TMP}/$*.zip --output text
 
 update-pkgs:
 	rm -rf ${TMP}/airspace-pkgs ; mkdir ${TMP}/airspace-pkgs ; cp requirements.txt ${TMP}/airspace-pkgs
@@ -20,5 +25,4 @@ update-pkgs:
 	cd ${TMP}/airspace-pkgs ; zip -qr9 $(TMP)/airspace-pkgs.zip python
 	aws lambda publish-layer-version --layer-name airspace-pkgs --zip-file fileb://${TMP}/airspace-pkgs.zip --compatible-runtimes "python3.8"
 
-deploy-www:
-	aws s3 sync www s3://airspace.artfahrt.com/www/${VERSION}/
+.FORCE:

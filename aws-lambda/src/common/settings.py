@@ -1,35 +1,20 @@
 # (c)2018, Arthur van Hoff
 
 import os, math
-import db
+
+BUCKET="airspace.artfahrt.com"
 
 #
 # Directories
 #
 
 tmp_dir = "tmp"
-if not os.path.exists(tmp_dir):
-    os.mkdir(tmp_dir)
-
 data_dir = "data"
-if not os.path.exists(data_dir):
-    os.mkdir(data_dir)
-
 www_dir = "www"
-if not os.path.exists(data_dir):
-    os.mkdir(data_dir)
 
 charts_dir = os.path.join(data_dir, "charts")
-if not os.path.exists(charts_dir):
-    os.mkdir(charts_dir)
-
 charts_source_dir = os.path.join(charts_dir, "source")
-if not os.path.exists(charts_source_dir):
-    os.mkdir(charts_source_dir)
-
 elevations_dir = os.path.join(charts_dir, "elevations")
-if not os.path.exists(elevations_dir):
-    os.mkdir(elevations_dir)
 
 nasr_dir = os.path.join(charts_source_dir, "NASR")
 cloudahoy_dir = os.path.join(data_dir, "cloudahoy")
@@ -99,12 +84,6 @@ max_line_distance_override = {
 min_line_length = 75
 min_line_length_override = {
 }
-
-#
-# Database (requires local redis-server)
-#
-
-db = db.Database("charts")
 
 #
 # Chart sizes

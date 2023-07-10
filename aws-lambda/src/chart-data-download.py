@@ -3,6 +3,7 @@
 import os, zipfile, tqdm
 import boto3, botocore, requests, tempfile
 import common.settings as settings
+from common.datastore import DataStore
 
 #
 # Download a chart file from the FAA and upload it to S3
@@ -29,7 +30,6 @@ def download_chart(s3, url:str, path:str) -> bool:
                     progress.update(len(chunk))
         src.seek(0)
         with tempfile.TemporaryDirectory() as tmpdir:
-            print("TEMPDIR", tmpdir)
             with zipfile.ZipFile(src.name) as zip:
                 zip.extractall(tmpdir)
             for name in os.listdir(tmpdir):
@@ -40,9 +40,22 @@ def download_chart(s3, url:str, path:str) -> bool:
     return True
    
 def lambda_handler(event, context):
+    #print('EVENT', event)
     s3 = boto3.client('s3')
-    return download_chart(s3, event['href'], event['path'])
+    db = DataStore()
+    table = db['chart_list']
+    count = 0
+    for rec in event['Records']:
+        if rec['eventName'] in ('INSERT', 'UPDATE'):
+            name = rec['dynamodb']['Keys']['key']['S']
+            chart = table[name]
+            if chart is None:
+                print(f"CHART NOT FOUND: {name}")
+            elif download_chart(s3, chart['href'], chart['path']):
+                count += 1
+    return count
 
 if __name__ == '__main__':
-    result = lambda_handler({"name": "Kansas City", "type": "sec", "date": "23-06-15", "next": "23-08-10", "href": "https://aeronav.faa.gov/visual/06-15-2023/sectional-files/Kansas_City.zip", "path": "data/charts/23-06-15/sec/Kansas_City"}, None)
+    event = {"Records":[{"Keys":{"key":{"S":"Albuquerque"}}}]}
+    result = lambda_handler(event, None)
     print(result)
